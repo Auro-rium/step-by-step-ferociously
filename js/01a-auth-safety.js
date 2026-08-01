@@ -1,28 +1,41 @@
 (() => {
-  const AUTH_TIMEOUT_MS = 5000;
+  const AUTH_TIMEOUT_MS = 3000;
 
-  function withTimeout(promise, label) {
-    return Promise.race([
-      promise,
-      new Promise((_, reject) => {
-        setTimeout(() => reject(new Error(`${label} timed out`)), AUTH_TIMEOUT_MS);
-      }),
-    ]);
+  function withTimeout(promise, label, timeoutMs = AUTH_TIMEOUT_MS) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs);
+      Promise.resolve(promise).then(
+        (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+      );
+    });
   }
 
-  async function clearLocalSession() {
+  function purgeStoredSession() {
     try {
-      await client.auth.signOut({ scope: 'local' });
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+        .forEach((key) => localStorage.removeItem(key));
     } catch {
-      try {
-        Object.keys(localStorage)
-          .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
-          .forEach((key) => localStorage.removeItem(key));
-      } catch {
-        // Storage can be unavailable in private browsing. The app still continues signed out.
-      }
+      // Private browsing may block storage. The app still continues signed out.
     }
     authContext = { session: null, profile: null };
+    return authContext;
+  }
+
+  function clearLocalSession() {
+    purgeStoredSession();
+    Promise.race([
+      client.auth.signOut({ scope: 'local' }),
+      new Promise((resolve) => setTimeout(resolve, 500)),
+    ]).catch(() => {});
+    return authContext;
   }
 
   refreshAuth = async function refreshAuthSafely() {
@@ -34,8 +47,7 @@
       if (error) throw error;
       session = data?.session || null;
     } catch {
-      await clearLocalSession();
-      return authContext;
+      return clearLocalSession();
     }
 
     if (session) {
@@ -50,14 +62,10 @@
 
         if (!profile) {
           const userResult = await withTimeout(client.auth.getUser(), 'Session validation');
-          if (userResult.error || !userResult.data?.user) {
-            await clearLocalSession();
-            return authContext;
-          }
+          if (userResult.error || !userResult.data?.user) return clearLocalSession();
         }
       } catch {
-        await clearLocalSession();
-        return authContext;
+        return clearLocalSession();
       }
     }
 
