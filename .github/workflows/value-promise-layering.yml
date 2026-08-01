@@ -1,0 +1,52 @@
+name: Release value promise layering
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/fix_value_promise_layering.py
+      - .github/workflows/value-promise-layering.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finish-value-promise-layering
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[value-promise]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply value promise layering fix
+        run: python scripts/fix_value_promise_layering.py
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck and production build
+        run: npm run build
+      - name: Verify value promise contract
+        run: |
+          grep -q "FINISH value promise layering fix" src/styles.css
+          grep -q "value-number::before" src/styles.css
+          grep -q "value-number strong" src/styles.css
+      - name: Commit verified release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/styles.css
+          if git diff --cached --quiet; then
+            echo "Value promise fix already applied."
+            exit 0
+          fi
+          git commit -m "Fix promise number layering [value-promise]"
+          git push origin HEAD:main
