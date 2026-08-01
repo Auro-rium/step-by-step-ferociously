@@ -1,0 +1,54 @@
+name: Release dark-only landing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/dark_landing_release.py
+      - .github/workflows/dark-landing-release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finish-dark-landing-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[dark-landing]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply dark-only landing release
+        run: python scripts/dark_landing_release.py
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck and production build
+        run: npm run build
+      - name: Verify dark-only contract
+        run: |
+          ! grep -q "ThemeProvider" src/main.tsx
+          ! grep -q "useTheme" src/main.tsx
+          ! grep -q "Switch to.*theme" src/main.tsx
+          grep -q "FINISH dark-only premium landing" src/styles.css
+          grep -q "color-scheme: dark" src/styles.css
+      - name: Commit verified release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.tsx src/styles.css
+          if git diff --cached --quiet; then
+            echo "Dark landing release already applied."
+            exit 0
+          fi
+          git commit -m "Ship dark-only premium landing [dark-landing]"
+          git push origin HEAD:main
