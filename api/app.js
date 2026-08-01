@@ -16,22 +16,44 @@ const APP_FILES = [
   'js/07-router.js',
 ];
 
-async function fetchSource(path, ref, timeoutMs = 8000) {
+const SUPABASE_SOURCES = [
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js',
+  'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js',
+];
+
+async function fetchText(url, label, timeoutMs = 10000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const url = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${ref}/${path}`;
     const response = await fetch(url, {
       signal: controller.signal,
-      headers: { 'User-Agent': 'FINISH-App-Bundler' },
+      headers: { 'User-Agent': 'FINISH-Self-Contained-Bundler' },
     });
-
-    if (!response.ok) throw new Error(`${path}: source returned ${response.status}`);
+    if (!response.ok) throw new Error(`${label}: source returned ${response.status}`);
     return await response.text();
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function fetchRepositorySource(path, ref) {
+  const url = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${ref}/${path}`;
+  return fetchText(url, path, 8000);
+}
+
+async function fetchSupabaseBundle() {
+  const failures = [];
+  for (const source of SUPABASE_SOURCES) {
+    try {
+      const bundle = await fetchText(source, new URL(source).hostname, 12000);
+      if (!bundle.includes('createClient')) throw new Error('bundle does not contain createClient');
+      return bundle;
+    } catch (error) {
+      failures.push(`${new URL(source).hostname}: ${error?.message || 'failed'}`);
+    }
+  }
+  throw new Error(`Supabase SDK unavailable (${failures.join('; ')})`);
 }
 
 function browserFailure(message) {
@@ -52,17 +74,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    const sources = await Promise.all(APP_FILES.map((path) => fetchSource(path, ref)));
-    const bundle = sources
+    const [supabaseBundle, sources] = await Promise.all([
+      fetchSupabaseBundle(),
+      Promise.all(APP_FILES.map((path) => fetchRepositorySource(path, ref))),
+    ]);
+
+    const applicationBundle = sources
       .map((source, index) => `\n/* ${APP_FILES[index]} */\n${source}\n//# sourceURL=${APP_FILES[index]}\n`)
       .join('\n');
 
-    // Compile without running. This catches a malformed concatenated bundle before a browser sees it.
+    const bundle = `/* Bundled Supabase SDK */\n${supabaseBundle}\n\n/* FINISH application */\n${applicationBundle}`;
+
+    // Compile without running. This catches malformed concatenation before browsers receive it.
     new Function(bundle);
 
     res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-FINISH-Bundle-Validated', '1');
+    res.setHeader('X-FINISH-Self-Contained', '1');
     res.setHeader('Cache-Control', ref === 'main'
       ? 'public, max-age=60, s-maxage=60, stale-while-revalidate=300'
       : 'public, max-age=31536000, s-maxage=31536000, immutable');
