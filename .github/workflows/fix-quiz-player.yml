@@ -1,0 +1,52 @@
+name: Fix quiz to lesson transition
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/fix_quiz_to_lesson_player.py
+      - .github/workflows/fix-quiz-player.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finish-quiz-player-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[quiz-player-fix]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply quiz-to-lesson player fix
+        run: python scripts/fix_quiz_to_lesson_player.py
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck and build
+        run: npm run build
+      - name: Verify player lifecycle fix
+        run: |
+          grep -q "videoIds.length || activeQuiz" src/main.tsx
+          grep -q "activeQuiz?.id, index" src/main.tsx
+          ! grep -q "player.current?.cueVideoById(exactVideoId)" src/main.tsx
+      - name: Commit verified fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.tsx
+          if git diff --cached --quiet; then
+            echo "Quiz player fix already applied."
+            exit 0
+          fi
+          git commit -m "Recreate lesson player after quiz completion [quiz-player-fix]"
+          git push origin HEAD:main
