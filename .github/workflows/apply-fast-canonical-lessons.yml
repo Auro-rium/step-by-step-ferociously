@@ -1,0 +1,41 @@
+name: Apply canonical premium learning route
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/apply_fast_canonical_lessons.py
+      - .github/workflows/apply-fast-canonical-lessons.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    if: ${{ !contains(github.event.head_commit.message, '[canonical-learn]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply canonical learning route patch
+        run: python scripts/apply_fast_canonical_lessons.py
+      - name: Validate production build
+        run: npm ci --no-audit --no-fund && npm run typecheck && npm run build
+      - name: Commit verified product changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.tsx src/styles.css index.html
+          if git diff --cached --quiet; then
+            echo "Canonical learning route already applied."
+            exit 0
+          fi
+          git commit -m "Use canonical lesson links and premium fast learning route [canonical-learn]"
+          git push origin HEAD:main
