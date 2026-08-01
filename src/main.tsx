@@ -755,7 +755,7 @@ function Checkout() {
 
 declare global {
   interface Window {
-    YT?: { Player: new (id: string, options: Record<string, unknown>) => YouTubePlayer; PlayerState: { PLAYING: number; ENDED: number } };
+    YT?: { Player: new (target: string | HTMLElement, options: Record<string, unknown>) => YouTubePlayer; PlayerState: { PLAYING: number; ENDED: number } };
     onYouTubeIframeAPIReady?: () => void;
   }
 }
@@ -767,7 +767,7 @@ function loadYouTubeApi() { return new Promise<void>((resolve, reject) => { if (
 function Learn() {
   const { slug = '' } = useParams(); const { user } = useSession(); const navigate = useNavigate();
   const [state, setState] = useState<LearningState | null>(null); const [videoIds, setVideoIds] = useState<string[]>([]); const [index, setIndex] = useState(0); const [watched, setWatched] = useState(0); const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null); const [quizResult, setQuizResult] = useState<Record<string, unknown> | null>(null); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
-  const player = useRef<YouTubePlayer | null>(null); const watchTimer = useRef<number | null>(null);
+  const player = useRef<YouTubePlayer | null>(null); const watchTimer = useRef<number | null>(null); const playerHost = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => { if (!user) return; let active = true; (async () => { try {
     const data = await getLearningRoute(slug);
@@ -793,7 +793,13 @@ function Learn() {
     loadYouTubeApi().then(() => {
       if (cancelled || !window.YT) return;
       const initialVideoId = videoIds[index] || videoIds[0];
-      player.current = new window.YT.Player('youtube-player', {
+      const host = playerHost.current;
+      if (!host) return;
+      host.replaceChildren();
+      const mount = document.createElement('div');
+      mount.className = 'youtube-player-mount';
+      host.appendChild(mount);
+      player.current = new window.YT.Player(mount, {
         width: '100%',
         height: '100%',
         videoId: initialVideoId,
@@ -816,8 +822,10 @@ function Learn() {
     return () => {
       cancelled = true;
       if (watchTimer.current) window.clearInterval(watchTimer.current);
-      player.current?.destroy();
+      // Never call YT.Player.destroy() on a node React owns. The iframe API
+      // replaces its mount element, which makes React remove a non-child and crash.
       player.current = null;
+      playerHost.current?.replaceChildren();
     };
   }, [state?.course.id, videoIds.length, activeQuiz?.id, index]);
 
@@ -908,7 +916,7 @@ function Learn() {
       const quiz = node.quiz; const unlocked = completed.size >= Number(quiz.unlock_after_video || 0); const done = passed.has(quiz.id); return <button key={`quiz-${quiz.id}`} className={`quiz-step ${activeQuiz?.id === quiz.id ? 'active' : ''} ${done ? 'done' : ''}`} disabled={!unlocked} onClick={() => { setActiveQuiz(quiz); setQuizResult(null); }}><i>{done ? <Check /> : unlocked ? '?' : <LockKeyhole />}</i><span><b>{quiz.title}</b><small>{unlocked ? `${quiz.pass_percent}% to pass · ${quiz.xp_reward} XP` : `Unlocks after ${quiz.unlock_after_video} lessons`}</small></span></button>;
     }) : <div className="mini-loader">Loading playlist…</div>}</nav></aside>
     <section className="lesson-workspace"><header className="lesson-header"><div><p className="eyebrow">PAID LEARNING SPACE</p><h1>{activeQuiz ? activeQuiz.title : state.steps[index]?.title || `Lesson ${index + 1}`}</h1><p>{activeQuiz ? activeQuiz.description || 'Pass this checkpoint to unlock the next lesson.' : completed.has(videoIds[index] || '') ? 'Completed. Continue to the next required step.' : 'Watch at least 80%, then complete the lesson to advance.'}</p></div><div className="xp-badge"><Trophy /><strong>{xp}</strong><span>XP</span></div></header>{error && <div className="form-message error">{error}</div>}
-      {!activeQuiz ? <><div className="player-shell"><div key={videoIds[index]} id="youtube-player" /></div><div className="lesson-controls panel"><div><p className="eyebrow">WATCH CHECKPOINT</p><h3>{completed.has(videoIds[index] || '') ? 'Lesson complete.' : `${watched}% watched`}</h3><ProgressBar value={watched} /></div><button className="button button-acid button-large" disabled={busy || (!completed.has(videoIds[index] || '') && watched < 80)} onClick={() => completed.has(videoIds[index] || '') ? continueFromLesson() : void completeLesson()}>{busy ? <><LoaderCircle className="spin" />Saving progress…</> : completed.has(videoIds[index] || '') ? <><ArrowRight />Continue to next step</> : <><CirclePlay />Complete and continue</>}</button></div></> : <section className="quiz-panel panel"><div className="quiz-title"><Trophy /><div><p className="eyebrow">KNOWLEDGE CHECK</p><h2>{activeQuiz.title}</h2><p>Score {activeQuiz.pass_percent}% or higher to pass and earn {activeQuiz.xp_reward} XP.</p></div></div><form onSubmit={submitQuiz}>{[...(activeQuiz.course_quiz_questions ?? [])].sort((a, b) => a.position - b.position).map((question, questionIndex) => <fieldset key={question.id}><legend><span>{questionIndex + 1}</span>{question.prompt}</legend>{question.options.map((option, optionIndex) => <label key={option}><input type="radio" name={`q-${question.id}`} value={optionIndex} required /><span>{option}</span></label>)}</fieldset>)}<button className="button button-primary button-large" disabled={busy}>Submit quiz</button></form>{quizResult && <div className={`quiz-result ${quizResult.passed ? 'pass' : 'fail'}`}><strong>{quizResult.passed ? 'Checkpoint passed' : 'Not passed yet'} · {String(quizResult.score_percent)}%</strong><p>{String(quizResult.correct_count)} of {String(quizResult.total_count)} correct. {Number(quizResult.awarded_xp || 0) > 0 ? `+${String(quizResult.awarded_xp)} XP` : ''}</p>{Boolean(quizResult.passed) && <button type="button" className="button button-acid" onClick={() => continueFromServerStep(quizResult.next_step as Record<string, unknown> | undefined)}>Continue to next step <ArrowRight /></button>}</div>}</section>}
+      {!activeQuiz ? <><div className="player-shell"><div ref={playerHost} className="youtube-player-host" /></div><div className="lesson-controls panel"><div><p className="eyebrow">WATCH CHECKPOINT</p><h3>{completed.has(videoIds[index] || '') ? 'Lesson complete.' : `${watched}% watched`}</h3><ProgressBar value={watched} /></div><button className="button button-acid button-large" disabled={busy || (!completed.has(videoIds[index] || '') && watched < 80)} onClick={() => completed.has(videoIds[index] || '') ? continueFromLesson() : void completeLesson()}>{busy ? <><LoaderCircle className="spin" />Saving progress…</> : completed.has(videoIds[index] || '') ? <><ArrowRight />Continue to next step</> : <><CirclePlay />Complete and continue</>}</button></div></> : <section className="quiz-panel panel"><div className="quiz-title"><Trophy /><div><p className="eyebrow">KNOWLEDGE CHECK</p><h2>{activeQuiz.title}</h2><p>Score {activeQuiz.pass_percent}% or higher to pass and earn {activeQuiz.xp_reward} XP.</p></div></div><form onSubmit={submitQuiz}>{[...(activeQuiz.course_quiz_questions ?? [])].sort((a, b) => a.position - b.position).map((question, questionIndex) => <fieldset key={question.id}><legend><span>{questionIndex + 1}</span>{question.prompt}</legend>{question.options.map((option, optionIndex) => <label key={option}><input type="radio" name={`q-${question.id}`} value={optionIndex} required /><span>{option}</span></label>)}</fieldset>)}<button className="button button-primary button-large" disabled={busy}>Submit quiz</button></form>{quizResult && <div className={`quiz-result ${quizResult.passed ? 'pass' : 'fail'}`}><strong>{quizResult.passed ? 'Checkpoint passed' : 'Not passed yet'} · {String(quizResult.score_percent)}%</strong><p>{String(quizResult.correct_count)} of {String(quizResult.total_count)} correct. {Number(quizResult.awarded_xp || 0) > 0 ? `+${String(quizResult.awarded_xp)} XP` : ''}</p>{Boolean(quizResult.passed) && <button type="button" className="button button-acid" onClick={() => continueFromServerStep(quizResult.next_step as Record<string, unknown> | undefined)}>Continue to next step <ArrowRight /></button>}</div>}</section>}
 
       {routeComplete && state.project && <section className="route-finale">
         <div className="route-finale-intro"><p className="eyebrow">COURSE ROUTE COMPLETE</p><h2>Build the final proof.</h2><p>You have finished every lesson and passed every checkpoint. The project is now the only remaining step.</p></div>
