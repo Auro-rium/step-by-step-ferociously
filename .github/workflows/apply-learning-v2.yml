@@ -1,0 +1,43 @@
+name: Apply FINISH learning experience upgrade
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/upgrade_learning_experience.py
+      - .github/workflows/apply-learning-v2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[learn-v2]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply deterministic learner upgrade
+        run: python scripts/upgrade_learning_experience.py
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck and build
+        run: npm run build
+      - name: Commit verified product changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.tsx src/styles.css
+          if git diff --cached --quiet; then
+            echo "Learning upgrade already applied."
+            exit 0
+          fi
+          git commit -m "Rebuild paid learning flow and deterministic progression [learn-v2]"
+          git push origin HEAD:main
