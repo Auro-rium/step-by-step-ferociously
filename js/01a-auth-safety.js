@@ -23,18 +23,9 @@
         .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
         .forEach((key) => localStorage.removeItem(key));
     } catch {
-      // Private browsing may block storage. The app still continues signed out.
+      // Storage can be unavailable in private browsing. Continue signed out.
     }
     authContext = { session: null, profile: null };
-    return authContext;
-  }
-
-  function clearLocalSession() {
-    purgeStoredSession();
-    Promise.race([
-      client.auth.signOut({ scope: 'local' }),
-      new Promise((resolve) => setTimeout(resolve, 500)),
-    ]).catch(() => {});
     return authContext;
   }
 
@@ -47,26 +38,29 @@
       if (error) throw error;
       session = data?.session || null;
     } catch {
-      return clearLocalSession();
+      return purgeStoredSession();
     }
 
-    if (session) {
-      try {
-        const profileResult = await withTimeout(
-          client.from('profiles').select('*').eq('id', session.user.id).maybeSingle(),
-          'Profile lookup',
-        );
+    if (!session) {
+      authContext = { session: null, profile: null };
+      return authContext;
+    }
 
-        if (profileResult.error) throw profileResult.error;
-        profile = profileResult.data || null;
+    try {
+      const profileResult = await withTimeout(
+        client.from('profiles').select('*').eq('id', session.user.id).maybeSingle(),
+        'Profile lookup',
+      );
 
-        if (!profile) {
-          const userResult = await withTimeout(client.auth.getUser(), 'Session validation');
-          if (userResult.error || !userResult.data?.user) return clearLocalSession();
-        }
-      } catch {
-        return clearLocalSession();
+      if (!profileResult.error) profile = profileResult.data || null;
+
+      if (!profile) {
+        const userResult = await withTimeout(client.auth.getUser(), 'Session validation');
+        if (userResult.error || !userResult.data?.user) return purgeStoredSession();
       }
+    } catch {
+      // A temporary profile/API failure must not log the user out or redirect public routes.
+      profile = null;
     }
 
     authContext = { session, profile };
