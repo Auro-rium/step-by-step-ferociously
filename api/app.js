@@ -35,7 +35,12 @@ async function fetchSource(path, ref, timeoutMs = 8000) {
 }
 
 function browserFailure(message) {
-  return `\n;(() => {\n  const root = document.querySelector('#app');\n  if (!root) return;\n  root.innerHTML = '<main class="shell"><section class="page-head"><div class="eyebrow">APP ERROR</div><h1 class="display">The app bundle failed.</h1><p class="lead">${String(message).replaceAll('\\', '\\\\').replaceAll("'", "\\'").replaceAll('\n', ' ')}</p><button class="btn" onclick="location.reload()">Reload</button></section></main>';\n})();\n`;
+  const safe = String(message)
+    .replaceAll('\\', '\\\\')
+    .replaceAll("'", "\\'")
+    .replaceAll('\n', ' ');
+
+  return `\n;(() => {\n  const root = document.querySelector('#app');\n  if (!root) return;\n  root.innerHTML = '<main class="shell"><section class="page-head"><div class="eyebrow">APP ERROR</div><h1 class="display">The app bundle failed.</h1><p class="lead">${safe}</p><button class="btn" onclick="location.reload()">Reload</button></section></main>';\n})();\n`;
 }
 
 export default async function handler(req, res) {
@@ -52,8 +57,12 @@ export default async function handler(req, res) {
       .map((source, index) => `\n/* ${APP_FILES[index]} */\n${source}\n//# sourceURL=${APP_FILES[index]}\n`)
       .join('\n');
 
+    // Compile without running. This catches a malformed concatenated bundle before a browser sees it.
+    new Function(bundle);
+
     res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-FINISH-Bundle-Validated', '1');
     res.setHeader('Cache-Control', ref === 'main'
       ? 'public, max-age=60, s-maxage=60, stale-while-revalidate=300'
       : 'public, max-age=31536000, s-maxage=31536000, immutable');
