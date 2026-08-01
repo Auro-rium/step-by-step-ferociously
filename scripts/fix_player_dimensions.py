@@ -33,3 +33,5 @@ css = r'''
 
 if marker not in text:
     path.write_text(text.rstrip() + css + '\n')
+
+# This script is idempotent and defines the player dimensions for all courses.
