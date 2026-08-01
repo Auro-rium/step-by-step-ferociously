@@ -40,19 +40,24 @@ async function renderCheckout(slug) {
   const course = await getCourse(slug);
   const enrollment = await getEnrollment(course.id);
   if (hasPaidAccess(enrollment)) return navigate(`/learn/${slug}`, true);
+
+  const readinessResult = await client.functions.invoke('payment-readiness', { body: {} });
+  const readiness = readinessResult.data || { stripe: false, razorpay: false, razorpayWebhook: false, crypto: false };
   const prices = course.challenge_prices || [];
   const stripe = prices.find((p) => p.provider === 'stripe' && p.currency === 'USD');
   const razorpay = prices.find((p) => p.provider === 'razorpay' && p.currency === 'INR');
   const crypto = prices.find((p) => p.provider === 'crypto' && p.currency === 'USDT');
+  const anyLive = Boolean(readiness.stripe || readiness.razorpay);
+
   app.innerHTML = `<div>${appHeader('catalog')}<main class="shell">
     <section class="checkout-head"><div class="eyebrow">UNLOCK ${escapeHtml(course.title)}</div><h1 class="display">Pay once. Enter the course.</h1><p class="lead">Gamification begins only after verified payment. The browser cannot grant itself access, charming as that would be.</p></section>
     <section class="payment-grid">
-      <article class="payment-card ${!isIndia() ? 'recommended' : ''}"><div class="eyebrow">INTERNATIONAL</div><h2>Stripe</h2><strong>${money(stripe?.amount || 2, 'USD')}</strong><p>Hosted checkout for cards outside India.</p><ul><li>Verified webhook unlock</li><li>Lifetime course access</li><li>Quizzes, XP and progress</li></ul><button class="btn" data-pay="stripe">Pay in USD</button></article>
-      <article class="payment-card ${isIndia() ? 'recommended' : ''}"><div class="eyebrow">INDIA</div><h2>Razorpay</h2><strong>${money(razorpay?.amount || 159, 'INR')}</strong><p>UPI, cards and Indian payment methods.</p><ul><li>Signed payment verification</li><li>Lifetime course access</li><li>Quizzes, XP and progress</li></ul><button class="btn" data-pay="razorpay">Pay in INR</button></article>
+      <article class="payment-card ${!isIndia() && readiness.stripe ? 'recommended' : ''}"><div class="eyebrow">INTERNATIONAL</div><h2>Stripe</h2><strong>${money(stripe?.amount || 2, 'USD')}</strong><p>Hosted checkout for cards outside India.</p><ul><li>Verified webhook unlock</li><li>Lifetime course access</li><li>Quizzes, XP and progress</li></ul><button class="btn" data-pay="stripe" ${readiness.stripe ? '' : 'disabled'}>${readiness.stripe ? 'Pay in USD' : 'Stripe setup pending'}</button></article>
+      <article class="payment-card ${isIndia() && readiness.razorpay ? 'recommended' : ''}"><div class="eyebrow">INDIA</div><h2>Razorpay</h2><strong>${money(razorpay?.amount || 159, 'INR')}</strong><p>UPI, cards and Indian payment methods.</p><ul><li>Signed payment verification</li><li>Lifetime course access</li><li>Quizzes, XP and progress</li></ul><button class="btn" data-pay="razorpay" ${readiness.razorpay ? '' : 'disabled'}>${readiness.razorpay ? 'Pay in INR' : 'Razorpay setup pending'}</button></article>
       <article class="payment-card crypto"><div class="eyebrow" style="color:var(--acid)">COMING NEXT</div><h2>Crypto</h2><strong>${crypto?.amount || 2} USDT</strong><p>USDT and USDC first. ETH and SOL later.</p><ul><li>On-chain verification required</li><li>No screenshot-based access</li><li>No manual transaction hash theatre</li></ul><button class="btn ghost" data-pay="crypto">View crypto status</button></article>
-    </section><div id="payment-status"></div>
+    </section><div id="payment-status">${anyLive ? '' : '<div class="payment-status error"><strong>Checkout is not live yet.</strong><br>Payment provider credentials still need to be configured by the owner. No customer can be charged until then.</div>'}</div>
   </main>${footer()}</div>`;
-  document.querySelectorAll('[data-pay]').forEach((button) => button.onclick = () => startPayment(button.dataset.pay, course));
+  document.querySelectorAll('[data-pay]:not([disabled])').forEach((button) => button.onclick = () => startPayment(button.dataset.pay, course));
 }
 
 async function startPayment(provider, course) {
