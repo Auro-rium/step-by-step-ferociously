@@ -20,7 +20,7 @@ export default function handler(request: any, response: any) {
   response.status(200).json({
     country,
     countryName: countryNames[country] || 'International',
-    provider: india ? 'razorpay' : 'stripe',
+    provider: india ? 'razorpay' : 'paypal',
     currency: india ? 'INR' : 'USD',
     market: india ? 'india' : 'international',
   });

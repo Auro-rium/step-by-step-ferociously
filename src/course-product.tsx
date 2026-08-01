@@ -6,7 +6,7 @@ import './course-product.css';
 export interface RegionalOffer {
   country: string;
   countryName: string;
-  provider: 'stripe' | 'razorpay';
+  provider: 'paypal' | 'razorpay';
   currency: 'USD' | 'INR';
   market: 'india' | 'international';
 }
@@ -60,7 +60,7 @@ export interface ProjectSubmission {
 const fallbackRegion: RegionalOffer = {
   country: 'ZZ',
   countryName: 'International',
-  provider: 'stripe',
+  provider: 'paypal',
   currency: 'USD',
   market: 'international',
 };
