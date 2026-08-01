@@ -1,3 +1,9 @@
+const AUTH_SITE_URL = 'https://finish-landing-nine.vercel.app';
+
+function confirmationRedirect(next) {
+  return `${AUTH_SITE_URL}/auth?confirmed=1&next=${encodeURIComponent(next)}`;
+}
+
 async function renderLanding() {
   if (authContext.session) return navigate('/app', true);
   const courses = await getCatalog();
@@ -67,15 +73,23 @@ function authTemplate(next) {
     <header class="topbar shell"><a class="brand" href="/" data-link>FINISH<b>.</b></a><a href="/catalog" data-link>Browse catalog</a></header>
     <main class="auth-page shell">
       <section class="auth-copy"><div class="eyebrow">YOUR COURSES, NOT ANOTHER SALES PAGE</div><h1 class="display">Return to where you actually stopped.</h1><p class="lead">Sign in once. After that, FINISH opens on your personal course home.</p></section>
-      <section class="auth-card"><div class="auth-inner"><div class="eyebrow">FINISH ACCOUNT</div><h2>${signup ? 'Create your account.' : 'Welcome back.'}</h2><p class="muted">${signup ? 'You will continue to checkout after confirmation.' : 'Continue to your courses.'}</p>
+      <section class="auth-card"><div class="auth-inner"><div class="eyebrow">FINISH ACCOUNT</div><h2>${signup ? 'Create your account.' : 'Welcome back.'}</h2><p class="muted">${signup ? 'You will continue after confirming the address.' : 'Continue to your courses.'}</p>
         <form id="auth-form" class="form">
           ${signup ? '<label>NAME<input id="auth-name" autocomplete="name" required></label>' : ''}
           <label>EMAIL<input id="auth-email" type="email" autocomplete="email" required></label>
-          <label>PASSWORD<input id="auth-password" type="password" minlength="8" autocomplete="current-password" required></label>
+          <label>PASSWORD<input id="auth-password" type="password" minlength="8" autocomplete="${signup ? 'new-password' : 'current-password'}" required></label>
           <button class="btn" id="auth-submit">${signup ? 'Create account' : 'Sign in'}</button>
         </form>
         <button class="text-btn" id="auth-toggle">${signup ? 'Already have an account? Sign in' : 'New here? Create an account'}</button>
-        <div id="confirm-panel" class="confirm-panel" hidden><strong>Confirm the email once.</strong><p>Then sign in and FINISH will return you to the course.</p><button class="btn soft" id="resend-confirmation">Resend email</button></div>
+        <div id="confirm-panel" class="confirm-panel" hidden>
+          <strong>Confirmation sent to <span id="confirm-email">your email</span>.</strong>
+          <p>Open the message from <b>noreply@mail.app.supabase.io</b>. Check Spam and Promotions too, because email providers enjoy hide-and-seek.</p>
+          <div style="display:flex;gap:9px;flex-wrap:wrap">
+            <a class="btn soft" href="https://mail.google.com/mail/u/0/#search/from%3A(noreply%40mail.app.supabase.io)" target="_blank" rel="noopener">Open Gmail</a>
+            <button class="btn soft" id="resend-confirmation" type="button">Resend email</button>
+          </div>
+          <p id="resend-status" class="muted" style="margin-bottom:0"></p>
+        </div>
       </div></section>
     </main>`;
 }
@@ -84,28 +98,72 @@ async function renderAuth(query) {
   const next = internalPath(query.get('next') || '/app');
   if (authContext.session) return navigate(next, true);
   app.innerHTML = authTemplate(next);
-  document.querySelector('#auth-toggle').onclick = () => { authMode = authMode === 'signup' ? 'signin' : 'signup'; app.innerHTML = authTemplate(next); bindAuth(next); };
   bindAuth(next);
+  if (query.get('confirmed') === '1') toast('Email confirmed. Sign in to continue.', 'success');
+}
+
+function showConfirmation(email) {
+  const panel = document.querySelector('#confirm-panel');
+  const label = document.querySelector('#confirm-email');
+  if (panel) panel.hidden = false;
+  if (label) label.textContent = email || 'your email';
+}
+
+function startResendCooldown(button, seconds = 60) {
+  if (!button) return;
+  clearInterval(button.__finishCooldown);
+  let remaining = Math.max(1, Number(seconds) || 60);
+  const status = document.querySelector('#resend-status');
+  button.disabled = true;
+  const update = () => {
+    button.textContent = `Resend in ${remaining}s`;
+    if (status) status.textContent = 'The email was requested. Delivery may take a minute.';
+    remaining -= 1;
+    if (remaining < 0) {
+      clearInterval(button.__finishCooldown);
+      button.disabled = false;
+      button.textContent = 'Resend email';
+      if (status) status.textContent = 'Still missing? Resend once, then check Spam and Promotions.';
+    }
+  };
+  update();
+  button.__finishCooldown = setInterval(update, 1000);
 }
 
 function bindAuth(next) {
   const form = document.querySelector('#auth-form');
   const toggle = document.querySelector('#auth-toggle');
-  if (toggle) toggle.onclick = () => { authMode = authMode === 'signup' ? 'signin' : 'signup'; app.innerHTML = authTemplate(next); bindAuth(next); };
+  if (toggle) toggle.onclick = () => {
+    authMode = authMode === 'signup' ? 'signin' : 'signup';
+    app.innerHTML = authTemplate(next);
+    bindAuth(next);
+  };
+
   form.onsubmit = async (event) => {
     event.preventDefault();
-    const email = document.querySelector('#auth-email').value.trim();
+    const email = document.querySelector('#auth-email').value.trim().toLowerCase();
     const password = document.querySelector('#auth-password').value;
     const submit = document.querySelector('#auth-submit');
     submit.disabled = true;
     try {
       if (authMode === 'signup') {
         const name = document.querySelector('#auth-name').value.trim();
-        const { data, error } = await client.auth.signUp({ email, password, options: { data: { display_name: name }, emailRedirectTo: `${location.origin}${next}` } });
+        const { data, error } = await client.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { display_name: name },
+            emailRedirectTo: confirmationRedirect(next),
+          },
+        });
         if (error) throw error;
-        if (data.session) { await refreshAuth(); return navigate(next, true); }
-        document.querySelector('#confirm-panel').hidden = false;
-        toast('Account created. Confirm your email once.', 'success');
+        if (data.session) {
+          await refreshAuth();
+          return navigate(next, true);
+        }
+        showConfirmation(email);
+        startResendCooldown(document.querySelector('#resend-confirmation'), 60);
+        toast(`Confirmation requested for ${email}.`, 'success');
       } else {
         const { error } = await client.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -114,15 +172,34 @@ function bindAuth(next) {
       }
     } catch (error) {
       const message = error?.message || String(error);
-      if (message.toLowerCase().includes('email not confirmed')) document.querySelector('#confirm-panel').hidden = false;
+      if (message.toLowerCase().includes('email not confirmed')) {
+        showConfirmation(email);
+      }
+      const waitMatch = message.match(/after\s+(\d+)\s+seconds?/i);
+      if (waitMatch) startResendCooldown(document.querySelector('#resend-confirmation'), Number(waitMatch[1]));
       toast(message, 'error');
-    } finally { submit.disabled = false; }
+    } finally {
+      submit.disabled = false;
+    }
   };
+
   const resend = document.querySelector('#resend-confirmation');
   if (resend) resend.onclick = async () => {
-    const email = document.querySelector('#auth-email').value.trim();
+    const email = document.querySelector('#auth-email').value.trim().toLowerCase();
     if (!email) return toast('Enter the email first.', 'error');
-    const { error } = await client.auth.resend({ type: 'signup', email, options: { emailRedirectTo: `${location.origin}${next}` } });
-    toast(error ? error.message : 'Confirmation email sent.', error ? 'error' : 'success');
+    resend.disabled = true;
+    const { error } = await client.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: confirmationRedirect(next) },
+    });
+    if (error) {
+      const waitMatch = error.message.match(/after\s+(\d+)\s+seconds?/i);
+      startResendCooldown(resend, waitMatch ? Number(waitMatch[1]) : 60);
+      return toast(error.message, 'error');
+    }
+    showConfirmation(email);
+    startResendCooldown(resend, 60);
+    toast(`A fresh confirmation was requested for ${email}.`, 'success');
   };
 }
