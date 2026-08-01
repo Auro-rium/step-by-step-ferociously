@@ -22,14 +22,16 @@ if insert not in text:
         raise SystemExit('getAdminData anchor not found')
     text = text.replace(anchor, insert + anchor, 1)
 
-old_interface = "interface YouTubePlayer { getPlaylist: () => string[]; getDuration: () => number; getCurrentTime: () => number; playVideoAt: (index: number) => void; cueVideoById: (id: string) => void; destroy: () => void; }"
-new_interface = "interface YouTubePlayer { getDuration: () => number; getCurrentTime: () => number; cueVideoById: (id: string) => void; destroy: () => void; }"
-if old_interface in text:
-    text = text.replace(old_interface, new_interface, 1)
+text = text.replace(
+    "interface YouTubePlayer { getPlaylist: () => string[]; getDuration: () => number; getCurrentTime: () => number; playVideoAt: (index: number) => void; cueVideoById: (id: string) => void; destroy: () => void; }",
+    "interface YouTubePlayer { getDuration: () => number; getCurrentTime: () => number; cueVideoById: (id: string) => void; destroy: () => void; }",
+    1,
+)
 
-old_load = """  useEffect(() => { if (!user) return; let active = true; (async () => { try { const course = await getCourse(slug); const enrollment = await getEnrollment(user.id, course.id); if (!hasPaidAccess(enrollment)) return navigate(`/checkout/${slug}`, { replace: true }); const data = await getLearningData(user.id, course.id); if (active) setState({ course, ...data }); } catch (reason) { if (active) setError(reason instanceof Error ? reason.message : 'The course player could not load.'); } })(); return () => { active = false; }; }, [slug, user, navigate]);
-"""
-new_load = """  useEffect(() => { if (!user) return; let active = true; (async () => { try {
+load_start = text.find("  useEffect(() => { if (!user) return; let active = true; (async () => { try { const course = await getCourse(slug);")
+load_end = text.find("\n\n  useEffect(() => { if (!state?.course.youtube_playlist_id)", load_start)
+if load_start >= 0 and load_end >= 0:
+    new_load = """  useEffect(() => { if (!user) return; let active = true; (async () => { try {
     const data = await getLearningRoute(slug);
     if (!active) return;
     const orderedSteps = [...data.steps].sort((a, b) => a.position - b.position);
@@ -45,19 +47,14 @@ new_load = """  useEffect(() => { if (!user) return; let active = true; (async (
     const message = reason instanceof Error ? reason.message : 'The course player could not load.';
     if (message.toLowerCase().includes('payment required')) navigate(`/checkout/${slug}`, { replace: true });
     else setError(message);
-  } })(); return () => { active = false; }; }, [slug, user, navigate]);
-"""
-if old_load in text:
-    text = text.replace(old_load, new_load, 1)
+  } })(); return () => { active = false; }; }, [slug, user, navigate]);"""
+    text = text[:load_start] + new_load + text[load_end:]
 elif "const data = await getLearningRoute(slug);" not in text:
-    raise SystemExit('learning load block not found')
+    raise SystemExit('learning data effect not found')
 
-start = text.find("  useEffect(() => { if (!state?.course.youtube_playlist_id) return;")
-if start >= 0:
-    end_marker = "  const completed = useMemo("
-    end = text.find(end_marker, start)
-    if end < 0:
-        raise SystemExit('YouTube effect end not found')
+player_start = text.find("  useEffect(() => { if (!state?.course.youtube_playlist_id) return;")
+player_end = text.find("\n\n  const completed = useMemo(", player_start)
+if player_start >= 0 and player_end >= 0:
     new_player = """  useEffect(() => {
     if (!state || !videoIds.length) return;
     let cancelled = false;
@@ -90,34 +87,41 @@ if start >= 0:
       player.current?.destroy();
       player.current = null;
     };
-  }, [state?.course.id, videoIds.length]);
+  }, [state?.course.id, videoIds.length]);"""
+    text = text[:player_start] + new_player + text[player_end:]
+elif "videoId: initialVideoId" not in text:
+    raise SystemExit('YouTube player effect not found')
 
-"""
-    text = text[:start] + new_player + text[end:]
-
-old_select = "const selectLesson = (lessonIndex: number) => { if (!canOpenLesson(lessonIndex)) return; setIndex(lessonIndex); setWatched(0); setActiveQuiz(null); setQuizResult(null); player.current?.playVideoAt(lessonIndex); };"
-new_select = "const selectLesson = (lessonIndex: number) => { if (!canOpenLesson(lessonIndex)) return; const exactVideoId = videoIds[lessonIndex]; if (!exactVideoId) return setError('This lesson is missing its video link.'); setError(''); setIndex(lessonIndex); setWatched(0); setActiveQuiz(null); setQuizResult(null); player.current?.cueVideoById(exactVideoId); window.scrollTo({ top: 0, behavior: 'smooth' }); };"
-if old_select in text:
-    text = text.replace(old_select, new_select, 1)
+open_start = text.find("  const openLesson = (lessonIndex: number, force = false) => {")
+open_end = text.find("\n  const selectLesson", open_start)
+if open_start >= 0 and open_end >= 0:
+    new_open = """  const openLesson = (lessonIndex: number, force = false) => {
+    if (!force && !canOpenLesson(lessonIndex)) return;
+    const exactVideoId = videoIds[lessonIndex];
+    if (!exactVideoId) return setError('This lesson is missing its canonical video link.');
+    setIndex(lessonIndex);
+    setWatched(0);
+    setActiveQuiz(null);
+    setQuizResult(null);
+    setError('');
+    player.current?.cueVideoById(exactVideoId);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };"""
+    text = text[:open_start] + new_open + text[open_end:]
 elif "player.current?.cueVideoById(exactVideoId)" not in text:
-    raise SystemExit('selectLesson block not found')
+    raise SystemExit('openLesson controller not found')
 
-progress_anchor = "  const totalSteps = Math.max(1, videoIds.length + (state?.quizzes.length ?? 0)); const progressPercent = Math.round(((completed.size + passed.size) / totalSteps) * 100);"
-progress_replacement = progress_anchor + "\n  const routeComplete = videoIds.length > 0 && completed.size >= videoIds.length && (state?.quizzes.every((quiz) => passed.has(quiz.id)) ?? false);"
+progress_line = "  const totalSteps = Math.max(1, videoIds.length + (state?.quizzes.length ?? 0)); const progressPercent = Math.round(((completed.size + passed.size) / totalSteps) * 100);"
 if "const routeComplete =" not in text:
-    if progress_anchor not in text:
-        raise SystemExit('progress anchor not found')
-    text = text.replace(progress_anchor, progress_replacement, 1)
+    if progress_line not in text:
+        raise SystemExit('progress calculation not found')
+    text = text.replace(progress_line, progress_line + "\n  const routeComplete = videoIds.length > 0 && completed.size >= videoIds.length && (state?.quizzes.every((quiz) => passed.has(quiz.id)) ?? false);", 1)
 
-old_project = """      <FinalProjectPanel
-        supabase={supabase}
-        project={state.project}
-        submission={state.submission}
-        unlocked={completed.size >= Number(state.course.lesson_count || 0) && state.quizzes.every((quiz) => passed.has(quiz.id))}
-        onSubmitted={(submission) => setState((current) => current ? { ...current, submission } : current)}
-      />
-"""
-new_project = """      {routeComplete && state.project && <section className=\"route-finale\">
+project_start = text.find("      <FinalProjectPanel\n")
+project_end = text.find("      />", project_start)
+if project_start >= 0 and project_end >= 0:
+    project_end += len("      />")
+    new_project = """      {routeComplete && state.project && <section className=\"route-finale\">
         <div className=\"route-finale-intro\"><p className=\"eyebrow\">COURSE ROUTE COMPLETE</p><h2>Build the final proof.</h2><p>You have finished every lesson and passed every checkpoint. The project is now the only remaining step.</p></div>
         <FinalProjectPanel
           supabase={supabase}
@@ -126,10 +130,8 @@ new_project = """      {routeComplete && state.project && <section className=\"r
           unlocked
           onSubmitted={(submission) => setState((current) => current ? { ...current, submission } : current)}
         />
-      </section>}
-"""
-if old_project in text:
-    text = text.replace(old_project, new_project, 1)
+      </section>}"""
+    text = text[:project_start] + new_project + text[project_end:]
 elif "route-finale" not in text:
     raise SystemExit('final project block not found')
 
