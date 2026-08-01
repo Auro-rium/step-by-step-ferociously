@@ -1,0 +1,52 @@
+name: Release landing bottom orientation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/fix_landing_bottom_orientation.py
+      - .github/workflows/landing-bottom-orientation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finish-landing-bottom-orientation
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[landing-bottom]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply responsive landing fix
+        run: python scripts/fix_landing_bottom_orientation.py
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck and production build
+        run: npm run build
+      - name: Verify responsive contract
+        run: |
+          grep -q "FINISH landing bottom orientation fix" src/styles.css
+          grep -q "@media (max-width: 980px)" src/styles.css
+          grep -q "grid-template-columns: 1fr" src/styles.css
+      - name: Commit verified release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/styles.css
+          if git diff --cached --quiet; then
+            echo "Landing bottom fix already applied."
+            exit 0
+          fi
+          git commit -m "Fix lower landing orientation [landing-bottom]"
+          git push origin HEAD:main
