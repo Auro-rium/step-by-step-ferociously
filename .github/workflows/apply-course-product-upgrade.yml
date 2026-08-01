@@ -1,0 +1,41 @@
+name: Apply FINISH course product upgrade
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/apply_course_product_upgrade.py
+      - .github/workflows/apply-course-product-upgrade.yml
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    if: ${{ !contains(github.event.head_commit.message, '[course-upgrade]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply integration patch
+        run: python scripts/apply_course_product_upgrade.py
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck and build
+        run: npm run build
+      - name: Commit integrated product
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.tsx package-lock.json
+          if git diff --cached --quiet; then
+            echo "Course product integration is already applied."
+            exit 0
+          fi
+          git commit -m "Integrate courses, regional pricing and final projects [course-upgrade]"
+          git push origin HEAD:main
