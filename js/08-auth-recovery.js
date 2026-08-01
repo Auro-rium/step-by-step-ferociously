@@ -8,60 +8,77 @@
     }
   }
 
-  function enhanceConfirmationPanel() {
-    const panel = document.querySelector('#confirm-panel');
-    if (!panel || panel.dataset.finishRecoveryReady === '1') return;
-    panel.dataset.finishRecoveryReady = '1';
+  async function createConfirmedAccount({ email, password, displayName }) {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/signup-no-confirm`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_KEY,
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        display_name: displayName,
+      }),
+    });
 
-    const explanation = document.createElement('p');
-    explanation.className = 'muted';
-    explanation.innerHTML = '<b>Important:</b> if the confirmation button opens localhost or a blank page, the email was still verified. Return to this tab and continue below.';
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.error) {
+      throw new Error(result.error || 'Could not create account');
+    }
+    return result;
+  }
 
-    const continueButton = document.createElement('button');
-    continueButton.type = 'button';
-    continueButton.id = 'continue-after-confirmation';
-    continueButton.className = 'btn';
-    continueButton.textContent = 'I confirmed it — continue';
+  function installImmediateSignup() {
+    const form = document.querySelector('#auth-form');
+    const nameInput = document.querySelector('#auth-name');
+    if (!form || !nameInput || form.dataset.immediateSignup === '1') return;
 
-    continueButton.onclick = async () => {
-      const email = document.querySelector('#auth-email')?.value.trim().toLowerCase();
+    form.dataset.immediateSignup = '1';
+
+    const intro = document.querySelector('.auth-inner > p.muted');
+    if (intro) intro.textContent = 'Your account opens immediately. No email verification.';
+
+    const confirmationPanel = document.querySelector('#confirm-panel');
+    if (confirmationPanel) confirmationPanel.remove();
+
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+
+      const email = document.querySelector('#auth-email')?.value.trim().toLowerCase() || '';
       const password = document.querySelector('#auth-password')?.value || '';
-      if (!email || !password) {
-        toast('Keep your email and password filled in, then continue.', 'error');
+      const displayName = nameInput.value.trim();
+      const submit = document.querySelector('#auth-submit');
+
+      if (!email || !password || !displayName) {
+        toast('Complete every field first.', 'error');
         return;
       }
 
-      continueButton.disabled = true;
-      continueButton.textContent = 'Checking confirmation…';
+      submit.disabled = true;
+      submit.textContent = 'Creating account…';
+
       try {
+        await createConfirmedAccount({ email, password, displayName });
+
         const { error } = await client.auth.signInWithPassword({ email, password });
         if (error) throw error;
+
         await refreshAuth();
+        toast('Account created. You are signed in.', 'success');
         navigate(nextPath(), true);
       } catch (error) {
-        const message = error?.message || String(error);
-        if (message.toLowerCase().includes('email not confirmed')) {
-          toast('The email is not confirmed yet. Open the newest confirmation message, then return here.', 'error');
-        } else {
-          toast(message, 'error');
-        }
+        toast(error?.message || String(error), 'error');
       } finally {
-        continueButton.disabled = false;
-        continueButton.textContent = 'I confirmed it — continue';
+        submit.disabled = false;
+        submit.textContent = 'Create account';
       }
     };
-
-    panel.append(explanation, continueButton);
   }
 
-  const observer = new MutationObserver(enhanceConfirmationPanel);
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['hidden'],
-  });
+  const observer = new MutationObserver(() => queueMicrotask(installImmediateSignup));
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 
-  document.addEventListener('DOMContentLoaded', enhanceConfirmationPanel);
-  enhanceConfirmationPanel();
+  document.addEventListener('DOMContentLoaded', installImmediateSignup);
+  installImmediateSignup();
 })();
