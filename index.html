@@ -8,6 +8,8 @@
   <title>FINISH. — Finish the course you started.</title>
   <script>
     (() => {
+      window.__FINISH_BOOT_STAGE__ = 'landing-html';
+      window.__FINISH_LAST_ERROR__ = '';
       try {
         const saved = localStorage.getItem('finish-theme');
         const theme = saved === 'light' || saved === 'dark'
@@ -18,6 +20,29 @@
       } catch {
         document.documentElement.dataset.theme = 'light';
       }
+
+      const rememberError = (value) => {
+        window.__FINISH_LAST_ERROR__ = String(value || 'Unknown browser error');
+      };
+      addEventListener('error', (event) => rememberError(event.message || event.error));
+      addEventListener('unhandledrejection', (event) => rememberError(event.reason?.message || event.reason));
+      addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          if (window.__FINISH_ROUTER_READY__ || document.querySelector('.boot-diagnostic')) return;
+          const notice = document.createElement('aside');
+          notice.className = 'boot-diagnostic';
+          const title = document.createElement('strong');
+          title.textContent = 'FINISH did not start.';
+          const detail = document.createElement('span');
+          detail.textContent = window.__FINISH_LAST_ERROR__ || `Stopped at ${window.__FINISH_BOOT_STAGE__ || 'unknown stage'}.`;
+          const reload = document.createElement('button');
+          reload.type = 'button';
+          reload.textContent = 'Reload';
+          reload.onclick = () => location.reload();
+          notice.append(title, detail, reload);
+          document.body.append(notice);
+        }, 7000);
+      });
     })();
   </script>
   <link rel="stylesheet" href="/styles.css" />
