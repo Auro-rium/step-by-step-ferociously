@@ -2,7 +2,7 @@ import { StrictMode, Component, createContext, useContext, useEffect, useMemo, u
 import { createRoot } from 'react-dom/client';
 import { createClient, type Session, type User } from '@supabase/supabase-js';
 import { createBrowserRouter, RouterProvider, Link, NavLink, Outlet, useNavigate, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, BookPlus, Check, CheckCircle2, ChevronLeft, ChevronRight, CirclePlay, ClipboardList, Clock3, CreditCard, Flame, Gauge, IndianRupee, Infinity as InfinityIcon, LayoutDashboard, Layers3, LoaderCircle, LockKeyhole, LogOut, Moon, PlayCircle, Plus, ReceiptText, ShieldCheck, Sparkles, Sun, Trash2, Trophy, WalletCards } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, BookPlus, Check, CheckCircle2, ChevronLeft, ChevronRight, CirclePlay, ClipboardList, Clock3, CreditCard, Flame, Gauge, IndianRupee, Infinity as InfinityIcon, LayoutDashboard, Layers3, LoaderCircle, LockKeyhole, LogOut, PlayCircle, Plus, ReceiptText, ShieldCheck, Sparkles, Trash2, Trophy, WalletCards } from 'lucide-react';
 import './styles.css';
 import { AdminProjectReviews, FinalProjectPanel, regionalPrice, useRegion, type CourseProject, type CourseStep, type ProjectSubmission, type RegionalOffer } from './course-product';
 
@@ -335,34 +335,7 @@ function useSession() {
   return value;
 }
 
-// ---- src/contexts/ThemeContext.tsx ----
-
-type Theme = 'light' | 'dark';
-interface ThemeState { theme: Theme; toggle: () => void; }
-const ThemeContext = createContext<ThemeState | null>(null);
-
-function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem('finish-theme');
-    if (saved === 'light' || saved === 'dark') return saved;
-    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-  });
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme;
-    localStorage.setItem('finish-theme', theme);
-  }, [theme]);
-
-  const value = useMemo(() => ({ theme, toggle: () => setTheme((current) => current === 'dark' ? 'light' : 'dark') }), [theme]);
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
-}
-
-function useTheme() {
-  const value = useContext(ThemeContext);
-  if (!value) throw new Error('useTheme must be used inside ThemeProvider.');
-  return value;
-}
+// FINISH is intentionally dark-only.
 
 // ---- src/components/ErrorBoundary.tsx ----
 
@@ -412,7 +385,6 @@ function Brand() { return <Link to="/" className="brand" aria-label="FINISH home
 
 function SiteHeader({ app = false }: { app?: boolean }) {
   const { user, profile, signOut } = useSession();
-  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const name = profile?.display_name || user?.email?.split('@')[0] || 'Learner';
 
@@ -433,9 +405,6 @@ function SiteHeader({ app = false }: { app?: boolean }) {
           </>}
         </nav>
         <div className="header-actions">
-          <button className="icon-button" onClick={toggle} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
           {app && user ? <>
             <div className="user-chip"><span>{name.slice(0, 1).toUpperCase()}</span><b>{name}</b></div>
             <button className="icon-button" onClick={leave} aria-label="Sign out"><LogOut size={18} /></button>
@@ -982,9 +951,7 @@ if (!rootElement) throw new Error('FINISH root element is missing.');
 createRoot(rootElement).render(
   <StrictMode>
     <ErrorBoundary>
-      <ThemeProvider>
-        <SessionProvider><App /></SessionProvider>
-      </ThemeProvider>
+<SessionProvider><App /></SessionProvider>
     </ErrorBoundary>
   </StrictMode>,
 );
