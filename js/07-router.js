@@ -1,11 +1,22 @@
 async function renderRoute() {
   cleanupPlayer();
+  const route = routeInfo();
+
+  if (route.name === 'landing') {
+    renderLanding();
+    bindGlobalActions();
+    scrollToCurrentHash();
+
+    refreshAuth().then(() => {
+      if (authContext.session && location.pathname === '/') navigate('/app', true);
+    }).catch(() => {});
+    return;
+  }
+
   app.innerHTML = '<div class="boot-screen">Loading FINISH.</div>';
   try {
     await refreshAuth();
-    const route = routeInfo();
-    if (route.name === 'landing') await renderLanding();
-    else if (route.name === 'auth') await renderAuth(route.query);
+    if (route.name === 'auth') await renderAuth(route.query);
     else if (route.name === 'home') await renderHome();
     else if (route.name === 'catalog') await renderCatalog();
     else if (route.name === 'course') await renderCourseDetail(route.slug);
