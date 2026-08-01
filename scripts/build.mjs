@@ -11,6 +11,7 @@ const checkOnly = process.argv.includes('--check');
 const APP_FILES = [
   'js/01-core.js',
   'js/01a-auth-safety.js',
+  'js/01b-hard-navigation.js',
   'js/02-public-auth.js',
   'js/02a-site-polish.js',
   'js/09-theme.js',
@@ -110,7 +111,7 @@ await Promise.all([
   writeFile(join(dist, 'assets', stylesName), styles),
   writeFile(join(dist, 'assets', themeName), theme),
   writeFile(join(dist, 'build.json'), JSON.stringify({
-    commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
+    commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.FINISH_SOURCE_COMMIT || null,
     builtAt: new Date().toISOString(),
     assets: { app: appName, styles: stylesName, theme: themeName },
     routeShells: HTML_FILES,
