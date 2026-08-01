@@ -4,6 +4,7 @@ import { createClient, type Session, type User } from '@supabase/supabase-js';
 import { createBrowserRouter, RouterProvider, Link, NavLink, Outlet, useNavigate, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, BookPlus, Check, CheckCircle2, ChevronLeft, ChevronRight, CirclePlay, ClipboardList, Clock3, CreditCard, Flame, Gauge, IndianRupee, Infinity as InfinityIcon, LayoutDashboard, Layers3, LoaderCircle, LockKeyhole, LogOut, Moon, PlayCircle, Plus, ReceiptText, ShieldCheck, Sparkles, Sun, Trash2, Trophy, WalletCards } from 'lucide-react';
 import './styles.css';
+import { AdminProjectReviews, FinalProjectPanel, regionalPrice, useRegion, type CourseProject, type CourseStep, type ProjectSubmission, type RegionalOffer } from './course-product';
 
 // ---- src/lib/types.ts ----
 type Currency = 'USD' | 'INR' | 'USDT' | string;
@@ -33,6 +34,11 @@ interface Challenge {
   status?: string | null;
   is_featured?: boolean | null;
   created_at?: string | null;
+  source_title?: string | null;
+  source_channel?: string | null;
+  source_url?: string | null;
+  difficulty?: string | null;
+  project_required?: boolean | null;
   challenge_prices?: ChallengePrice[];
 }
 
@@ -214,19 +220,28 @@ export async function getDashboard(userId: string) {
 }
 
 export async function getLearningData(userId: string, challengeId: string) {
-  const [progress, xp, quizzes, attempts] = await Promise.all([
+  const [progress, xp, quizzes, attempts, steps, project, submission] = await Promise.all([
     withTimeout(supabase.from('playlist_video_progress').select('*').eq('user_id', userId).eq('challenge_id', challengeId), 8000, 'Progress'),
     withTimeout(supabase.from('xp_events').select('*').eq('user_id', userId).eq('challenge_id', challengeId), 8000, 'XP'),
     withTimeout(supabase.from('course_quizzes').select('*, course_quiz_questions(*)').eq('challenge_id', challengeId).eq('published', true).order('position'), 8000, 'Quizzes'),
     withTimeout(supabase.from('course_quiz_attempts').select('*').eq('user_id', userId).order('created_at', { ascending: false }), 8000, 'Attempts'),
+    withTimeout(supabase.from('challenge_steps').select('*').eq('challenge_id', challengeId).order('position'), 8000, 'Lessons'),
+    withTimeout(supabase.from('course_projects').select('*').eq('challenge_id', challengeId).maybeSingle(), 8000, 'Final project'),
+    withTimeout(supabase.from('course_project_submissions').select('*').eq('user_id', userId).eq('challenge_id', challengeId).maybeSingle(), 8000, 'Project submission'),
   ]);
   if (progress.error) throw progress.error;
   if (quizzes.error) throw quizzes.error;
+  if (steps.error) throw steps.error;
+  if (project.error) throw project.error;
+  if (submission.error) throw submission.error;
   return {
     progress: (progress.data ?? []) as VideoProgress[],
     xp: (xp.data ?? []) as XpEvent[],
     quizzes: (quizzes.data ?? []) as Quiz[],
     attempts: (attempts.data ?? []) as QuizAttempt[],
+    steps: (steps.data ?? []) as CourseStep[],
+    project: project.data as CourseProject | null,
+    submission: submission.data as ProjectSubmission | null,
   };
 }
 
@@ -450,14 +465,8 @@ function RequireAdmin() {
 
 // ---- src/components/CourseCard.tsx ----
 
-function priceFor(course: Challenge) {
-  const prices = course.challenge_prices ?? [];
-  const india = Intl.DateTimeFormat().resolvedOptions().timeZone === 'Asia/Kolkata' || navigator.language.toLowerCase().endsWith('-in');
-  return (india
-    ? prices.find((price) => price.provider === 'razorpay' && price.currency === 'INR')
-    : prices.find((price) => price.provider === 'stripe' && price.currency === 'USD'))
-    || prices.find((price) => price.active !== false)
-    || { amount: india ? 159 : 2, currency: india ? 'INR' : 'USD', provider: india ? 'razorpay' : 'stripe' };
+function priceFor(course: Challenge, region: RegionalOffer) {
+  return regionalPrice(course.challenge_prices ?? [], region);
 }
 
 function formatMoney(amount: number, currency: string) {
@@ -475,7 +484,8 @@ function CourseArtwork({ course, compact = false }: { course: Challenge; compact
 }
 
 function CourseCard({ course, enrollment }: { course: Challenge; enrollment?: Enrollment | null }) {
-  const price = priceFor(course);
+  const region = useRegion();
+  const price = priceFor(course, region);
   const owned = hasPaidAccess(enrollment ?? null);
   return <article className="course-card">
     <CourseArtwork course={course} />
@@ -575,6 +585,7 @@ function Catalog() {
 function CoursePage() {
   const { slug = '' } = useParams();
   const { user } = useSession();
+  const region = useRegion();
   const [course, setCourse] = useState<Challenge | null>(null);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [error, setError] = useState('');
@@ -594,17 +605,17 @@ function CoursePage() {
   if (error) return <main className="page shell"><PageError message={error} /></main>;
   if (!course) return <PageLoader label="Opening the course" />;
   const owned = hasPaidAccess(enrollment);
-  const price = priceFor(course);
+  const price = priceFor(course, region);
   const destination = owned ? `/learn/${course.slug}` : user ? `/checkout/${course.slug}` : `/auth?next=${encodeURIComponent(`/checkout/${course.slug}`)}`;
 
   return <main className="page shell course-page">
     <div className="breadcrumb"><Link to="/catalog">Catalog</Link><ChevronRight size={14} /><span>{course.title}</span></div>
     <section className="course-hero">
       <CourseArtwork course={course} />
-      <div className="course-hero-copy"><p className="eyebrow">{course.eyebrow || 'FINISH COURSE'}</p><h1>{course.title}</h1><p className="course-lead">{course.description}</p><div className="course-pills"><Pill>{course.lesson_count || 'Full playlist'} lessons</Pill><Pill>Knowledge checks</Pill><Pill>Progress + XP</Pill></div><div className="course-price"><div><small>{owned ? 'YOUR ACCESS' : 'ONE-TIME PRICE'}</small><strong>{owned ? 'Unlocked' : formatMoney(price.amount, price.currency)}</strong><span>{owned ? 'Return whenever you need it.' : 'No subscription. Permanent access.'}</span></div><Link className="button button-acid button-large" to={destination}>{owned ? 'Continue learning' : 'Start this course'} <ArrowUpRight size={18} /></Link></div></div>
+      <div className="course-hero-copy"><p className="eyebrow">{course.eyebrow || 'FINISH COURSE'}</p><h1>{course.title}</h1><p className="course-lead">{course.description}</p><p className="regional-note">Source: {course.source_title || course.title} · {course.source_channel || 'YouTube educator'}</p><div className="course-pills"><Pill>{course.lesson_count || 'Full playlist'} lessons</Pill><Pill>Knowledge checks</Pill><Pill>Progress + XP</Pill><Pill>{course.difficulty || 'Advanced'}</Pill><Pill>Reviewed final project</Pill></div><div className="course-price"><div><small>{owned ? 'YOUR ACCESS' : 'ONE-TIME PRICE'}</small><strong>{owned ? 'Unlocked' : formatMoney(price.amount, price.currency)}</strong><span>{owned ? 'Return whenever you need it.' : 'No subscription. Permanent access.'}</span></div><Link className="button button-acid button-large" to={destination}>{owned ? 'Continue learning' : 'Start this course'} <ArrowUpRight size={18} /></Link></div></div>
     </section>
     <section className="course-outcome-grid"><div><p className="eyebrow">THE OUTCOME</p><h2>{course.outcome || 'Finish the playlist with a tested mental model, not a vague memory of having watched it.'}</h2></div><div className="benefit-list"><article><ShieldCheck /><div><h3>A route that stays coherent</h3><p>Lessons remain ordered and the next useful action is always obvious.</p></div></article><article><Trophy /><div><h3>Progress that means something</h3><p>Checkpoints and quizzes distinguish completion from passive playback.</p></div></article><article><InfinityIcon /><div><h3>Lifetime access</h3><p>Pay once. Revisit the course, quizzes and progress whenever needed.</p></div></article></div></section>
-    <section className="included-panel"><p className="eyebrow">INCLUDED</p><div>{['Complete playlist route','Saved lesson progress','Quiz checkpoints','XP and streak tracking','Personal learner dashboard','Permanent course access'].map((item) => <span key={item}><Check size={17} />{item}</span>)}</div></section>
+    <section className="included-panel"><p className="eyebrow">INCLUDED</p><div>{['Complete named lecture route','Saved lesson progress','Authored quiz checkpoints','Cumulative final assessment','Reviewed final project','XP and streak tracking','Permanent course access'].map((item) => <span key={item}><Check size={17} />{item}</span>)}</div></section>
   </main>;
 }
 
@@ -699,13 +710,13 @@ declare global { interface Window { Razorpay?: new (options: Record<string, unkn
 function loadScript(src: string) { return new Promise<void>((resolve, reject) => { const existing = document.querySelector(`script[src="${src}"]`); if (existing) return resolve(); const script = document.createElement('script'); script.src = src; script.onload = () => resolve(); script.onerror = () => reject(new Error('Payment checkout could not load.')); document.head.append(script); }); }
 
 function Checkout() {
-  const { slug = '' } = useParams(); const { user, refresh } = useSession(); const navigate = useNavigate();
+  const { slug = '' } = useParams(); const { user, refresh } = useSession(); const navigate = useNavigate(); const region = useRegion();
   const [course, setCourse] = useState<Challenge | null>(null); const [readiness, setReadiness] = useState({ stripe: false, razorpay: false }); const [busy, setBusy] = useState(''); const [error, setError] = useState('');
 
   useEffect(() => { if (!user) return; let active = true; (async () => { try { const next = await getCourse(slug); const enrollment = await getEnrollment(user.id, next.id); if (hasPaidAccess(enrollment)) return navigate(`/learn/${slug}`, { replace: true }); const result = await supabase.functions.invoke('payment-readiness', { body: {} }); if (active) { setCourse(next); setReadiness({ stripe: Boolean(result.data?.stripe), razorpay: Boolean(result.data?.razorpay) }); } } catch (reason) { if (active) setError(reason instanceof Error ? reason.message : 'Checkout could not load.'); } })(); return () => { active = false; }; }, [slug, user, navigate]);
 
   const pay = async (provider: 'stripe' | 'razorpay') => {
-    if (!course) return; setBusy(provider); setError('');
+    if (!course) return; if (provider !== region.provider) return; setBusy(provider); setError('');
     try {
       const result = await supabase.functions.invoke('payment-checkout', { body: { challenge_slug: course.slug, provider, success_url: `${location.origin}/learn/${course.slug}`, cancel_url: location.href } });
       if (result.error || result.data?.error) throw new Error(result.error?.message || result.data?.error || 'Checkout could not be created.');
@@ -722,9 +733,9 @@ function Checkout() {
   const usd = course.challenge_prices?.find((price) => price.provider === 'stripe' && price.currency === 'USD')?.amount ?? 2;
   const inr = course.challenge_prices?.find((price) => price.provider === 'razorpay' && price.currency === 'INR')?.amount ?? 159;
 
-  return <main className="app-page shell checkout-page"><Link className="back-link" to={`/course/${course.slug}`}><ArrowLeft size={16} />Back to course</Link><header className="checkout-heading"><p className="eyebrow">SECURE CHECKOUT</p><h1>Unlock {course.title}.</h1><p>One payment. Permanent access. Progress, quizzes and XP unlock only after verified payment.</p></header>{error && <div className="form-message error">{error}</div>}<section className="checkout-grid">
-    <article className="payment-card"><div className="payment-icon"><CreditCard /></div><p className="eyebrow">INTERNATIONAL</p><h2>Pay by card</h2><strong>{formatMoney(usd, 'USD')}</strong><p>Secure hosted checkout through Stripe.</p><ul>{['Lifetime course access','Verified webhook unlock','All quizzes and progress'].map((item) => <li key={item}><Check />{item}</li>)}</ul><button className="button button-primary button-large full" disabled={!readiness.stripe || !!busy} onClick={() => pay('stripe')}>{busy === 'stripe' ? <LoaderCircle className="spin" /> : <WalletCards />} {readiness.stripe ? 'Pay with Stripe' : 'Stripe setup pending'}</button></article>
-    <article className="payment-card recommended"><span className="recommended-label">BEST IN INDIA</span><div className="payment-icon acid"><IndianRupee /></div><p className="eyebrow">INDIA</p><h2>UPI, cards and more</h2><strong>{formatMoney(inr, 'INR')}</strong><p>Fast domestic checkout through Razorpay.</p><ul>{['UPI and Indian cards','Signed payment verification','Permanent access'].map((item) => <li key={item}><Check />{item}</li>)}</ul><button className="button button-acid button-large full" disabled={!readiness.razorpay || !!busy} onClick={() => pay('razorpay')}>{busy === 'razorpay' ? <LoaderCircle className="spin" /> : <IndianRupee />} {readiness.razorpay ? 'Pay with Razorpay' : 'Razorpay setup pending'}</button></article>
+  return <main className="app-page shell checkout-page"><Link className="back-link" to={`/course/${course.slug}`}><ArrowLeft size={16} />Back to course</Link><header className="checkout-heading"><p className="eyebrow">SECURE CHECKOUT</p><h1>Unlock {course.title}.</h1><p>One payment. Permanent access. {region.countryName} checkout uses {region.provider === 'razorpay' ? 'Razorpay in INR' : 'Stripe in USD'}.</p></header>{error && <div className="form-message error">{error}</div>}<section className="checkout-grid">
+    {region.provider === 'stripe' && <article className="payment-card"><div className="payment-icon"><CreditCard /></div><p className="eyebrow">INTERNATIONAL</p><h2>Pay by card</h2><strong>{formatMoney(usd, 'USD')}</strong><p>Secure hosted checkout through Stripe.</p><ul>{['Lifetime course access','Verified webhook unlock','All quizzes and progress'].map((item) => <li key={item}><Check />{item}</li>)}</ul><button className="button button-primary button-large full" disabled={!readiness.stripe || !!busy} onClick={() => pay('stripe')}>{busy === 'stripe' ? <LoaderCircle className="spin" /> : <WalletCards />} {readiness.stripe ? 'Pay with Stripe' : 'Stripe setup pending'}</button></article>}
+    {region.provider === 'razorpay' && <article className="payment-card recommended"><span className="recommended-label">BEST IN INDIA</span><div className="payment-icon acid"><IndianRupee /></div><p className="eyebrow">INDIA</p><h2>UPI, cards and more</h2><strong>{formatMoney(inr, 'INR')}</strong><p>Fast domestic checkout through Razorpay.</p><ul>{['UPI and Indian cards','Signed payment verification','Permanent access'].map((item) => <li key={item}><Check />{item}</li>)}</ul><button className="button button-acid button-large full" disabled={!readiness.razorpay || !!busy} onClick={() => pay('razorpay')}>{busy === 'razorpay' ? <LoaderCircle className="spin" /> : <IndianRupee />} {readiness.razorpay ? 'Pay with Razorpay' : 'Razorpay setup pending'}</button></article>}
   </section><div className="secure-note"><ShieldCheck /><span>Access is granted server-side after payment verification. Screenshots and manual transaction hashes cannot unlock a course.</span></div></main>;
 }
 
@@ -737,7 +748,7 @@ declare global {
   }
 }
 interface YouTubePlayer { getPlaylist: () => string[]; getDuration: () => number; getCurrentTime: () => number; playVideoAt: (index: number) => void; cueVideoById: (id: string) => void; destroy: () => void; }
-interface LearningState { course: Challenge; progress: VideoProgress[]; xp: XpEvent[]; quizzes: Quiz[]; attempts: QuizAttempt[]; }
+interface LearningState { course: Challenge; progress: VideoProgress[]; xp: XpEvent[]; quizzes: Quiz[]; attempts: QuizAttempt[]; steps: CourseStep[]; project: CourseProject | null; submission: ProjectSubmission | null; }
 
 function loadYouTubeApi() { return new Promise<void>((resolve, reject) => { if (window.YT?.Player) return resolve(); const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]'); const timeout = window.setTimeout(() => reject(new Error('YouTube took too long to load.')), 12000); window.onYouTubeIframeAPIReady = () => { window.clearTimeout(timeout); resolve(); }; if (!existing) { const script = document.createElement('script'); script.src = 'https://www.youtube.com/iframe_api'; script.onerror = () => reject(new Error('YouTube could not load.')); document.head.append(script); } }); }
 
@@ -773,9 +784,17 @@ function Learn() {
   if (error && !state) return <main className="app-page shell"><PageError message={error} /></main>;
   if (!state || !user) return <PageLoader label="Opening the learning route" />;
 
-  return <main className="learn-page"><aside className="quest-map"><Link className="back-link" to="/app"><ChevronLeft />My learning</Link><p className="eyebrow">QUEST MAP</p><h2>{state.course.title}</h2><div className="quest-progress"><div><strong>{progressPercent}%</strong><span>{xp} XP</span></div><ProgressBar value={progressPercent} /></div><nav className="lesson-list">{videoIds.length ? videoIds.map((id, lessonIndex) => { const done = completed.has(id); const unlocked = canOpenLesson(lessonIndex); return <button key={id} className={`${index === lessonIndex && !activeQuiz ? 'active' : ''} ${done ? 'done' : ''}`} disabled={!unlocked} onClick={() => selectLesson(lessonIndex)}><i>{done ? <Check /> : unlocked ? lessonIndex + 1 : <LockKeyhole />}</i><span><b>Lesson {String(lessonIndex + 1).padStart(2, '0')}</b><small>{done ? 'Checkpoint complete' : unlocked ? 'Video checkpoint' : 'Complete previous lesson'}</small></span></button>; }) : <div className="mini-loader">Loading playlist…</div>}{state.quizzes.map((quiz) => { const unlocked = completed.size >= Number(quiz.unlock_after_video || 0); const done = passed.has(quiz.id); return <button key={quiz.id} className={`quiz-step ${activeQuiz?.id === quiz.id ? 'active' : ''} ${done ? 'done' : ''}`} disabled={!unlocked} onClick={() => { setActiveQuiz(quiz); setQuizResult(null); }}><i>{done ? <Check /> : unlocked ? '?' : <LockKeyhole />}</i><span><b>{quiz.title}</b><small>{unlocked ? `${quiz.pass_percent}% to pass · ${quiz.xp_reward} XP` : `Unlocks after ${quiz.unlock_after_video} lessons`}</small></span></button>; })}</nav></aside>
-    <section className="lesson-workspace"><header className="lesson-header"><div><p className="eyebrow">PAID LEARNING SPACE</p><h1>{activeQuiz ? activeQuiz.title : `Lesson ${index + 1}`}</h1><p>{activeQuiz ? activeQuiz.description || 'Prove what you understood before moving on.' : 'Watch intentionally. Complete 80% to unlock the checkpoint.'}</p></div><div className="xp-badge"><Trophy /><strong>{xp}</strong><span>XP</span></div></header>{error && <div className="form-message error">{error}</div>}
+  return <main className="learn-page"><aside className="quest-map"><Link className="back-link" to="/app"><ChevronLeft />My learning</Link><p className="eyebrow">QUEST MAP</p><h2>{state.course.title}</h2><div className="quest-progress"><div><strong>{progressPercent}%</strong><span>{xp} XP</span></div><ProgressBar value={progressPercent} /></div><nav className="lesson-list">{videoIds.length ? videoIds.map((id, lessonIndex) => { const done = completed.has(id); const unlocked = canOpenLesson(lessonIndex); return <button key={id} className={`${index === lessonIndex && !activeQuiz ? 'active' : ''} ${done ? 'done' : ''}`} disabled={!unlocked} onClick={() => selectLesson(lessonIndex)}><i>{done ? <Check /> : unlocked ? lessonIndex + 1 : <LockKeyhole />}</i><span><b>{state.steps[lessonIndex]?.title || `Lesson ${String(lessonIndex + 1).padStart(2, '0')}`}</b><small>{done ? 'Checkpoint complete' : unlocked ? 'Video checkpoint' : 'Complete previous lesson'}</small></span></button>; }) : <div className="mini-loader">Loading playlist…</div>}{state.quizzes.map((quiz) => { const unlocked = completed.size >= Number(quiz.unlock_after_video || 0); const done = passed.has(quiz.id); return <button key={quiz.id} className={`quiz-step ${activeQuiz?.id === quiz.id ? 'active' : ''} ${done ? 'done' : ''}`} disabled={!unlocked} onClick={() => { setActiveQuiz(quiz); setQuizResult(null); }}><i>{done ? <Check /> : unlocked ? '?' : <LockKeyhole />}</i><span><b>{quiz.title}</b><small>{unlocked ? `${quiz.pass_percent}% to pass · ${quiz.xp_reward} XP` : `Unlocks after ${quiz.unlock_after_video} lessons`}</small></span></button>; })}</nav></aside>
+    <section className="lesson-workspace"><header className="lesson-header"><div><p className="eyebrow">PAID LEARNING SPACE</p><h1>{activeQuiz ? activeQuiz.title : state.steps[index]?.title || `Lesson ${index + 1}`}</h1><p>{activeQuiz ? activeQuiz.description || 'Prove what you understood before moving on.' : 'Watch intentionally. Complete 80% to unlock the checkpoint.'}</p></div><div className="xp-badge"><Trophy /><strong>{xp}</strong><span>XP</span></div></header>{error && <div className="form-message error">{error}</div>}
       {!activeQuiz ? <><div className="player-shell"><div id="youtube-player" /></div><div className="lesson-controls panel"><div><p className="eyebrow">WATCH CHECKPOINT</p><h3>{completed.has(videoIds[index] || '') ? 'Lesson complete.' : `${watched}% watched`}</h3><ProgressBar value={watched} /></div><button className="button button-acid button-large" disabled={busy || watched < 80 || completed.has(videoIds[index] || '')} onClick={completeLesson}>{completed.has(videoIds[index] || '') ? <><Check />Checkpoint complete</> : <><CirclePlay />Complete checkpoint</>}</button></div></> : <section className="quiz-panel panel"><div className="quiz-title"><Trophy /><div><p className="eyebrow">KNOWLEDGE CHECK</p><h2>{activeQuiz.title}</h2><p>Score {activeQuiz.pass_percent}% or higher to pass and earn {activeQuiz.xp_reward} XP.</p></div></div><form onSubmit={submitQuiz}>{[...(activeQuiz.course_quiz_questions ?? [])].sort((a, b) => a.position - b.position).map((question, questionIndex) => <fieldset key={question.id}><legend><span>{questionIndex + 1}</span>{question.prompt}</legend>{question.options.map((option, optionIndex) => <label key={option}><input type="radio" name={`q-${question.id}`} value={optionIndex} required /><span>{option}</span></label>)}</fieldset>)}<button className="button button-primary button-large" disabled={busy}>Submit quiz</button></form>{quizResult && <div className={`quiz-result ${quizResult.passed ? 'pass' : 'fail'}`}><strong>{quizResult.passed ? 'Passed' : 'Not passed'} · {String(quizResult.score_percent)}%</strong><p>{String(quizResult.correct_count)} of {String(quizResult.total_count)} correct. {Number(quizResult.awarded_xp || 0) > 0 ? `+${String(quizResult.awarded_xp)} XP` : ''}</p></div>}</section>}
+
+      <FinalProjectPanel
+        supabase={supabase}
+        project={state.project}
+        submission={state.submission}
+        unlocked={completed.size >= Number(state.course.lesson_count || 0) && state.quizzes.every((quiz) => passed.has(quiz.id))}
+        onSubmitted={(submission) => setState((current) => current ? { ...current, submission } : current)}
+      />
     </section>
   </main>;
 }
@@ -786,7 +805,7 @@ interface QuestionDraft { prompt: string; options: string; correct: number; expl
 const blankQuestion = (): QuestionDraft => ({ prompt: '', options: '', correct: 1, explanation: '' });
 
 function Admin() {
-  const [tab, setTab] = useState<'course' | 'quiz' | 'orders'>('course'); const [courses, setCourses] = useState<Challenge[]>([]); const [orders, setOrders] = useState<PaymentOrder[]>([]); const [questions, setQuestions] = useState<QuestionDraft[]>([blankQuestion(), blankQuestion(), blankQuestion()]); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [error, setError] = useState('');
+  const [tab, setTab] = useState<'course' | 'quiz' | 'projects' | 'orders'>('course'); const [courses, setCourses] = useState<Challenge[]>([]); const [orders, setOrders] = useState<PaymentOrder[]>([]); const [questions, setQuestions] = useState<QuestionDraft[]>([blankQuestion(), blankQuestion(), blankQuestion()]); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [error, setError] = useState('');
   const load = async () => { setLoading(true); try { const data = await getAdminData(); setCourses(data.courses); setOrders(data.orders); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Admin data could not load.'); } finally { setLoading(false); } };
   useEffect(() => { void load(); }, []);
   const publishCourse = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setBusy(true); setMessage(''); const form = new FormData(event.currentTarget); let playlist = ''; try { playlist = new URL(String(form.get('playlist'))).searchParams.get('list') || ''; } catch { setError('Use a valid YouTube playlist URL.'); setBusy(false); return; } const result = await supabase.rpc('create_challenge_from_playlist', { p_title: form.get('title'), p_slug: form.get('slug'), p_description: form.get('description'), p_outcome: form.get('outcome'), p_playlist_id: playlist, p_cover_image_url: form.get('cover') || null, p_lesson_count: 0, p_usd: Number(form.get('usd')), p_inr: Number(form.get('inr')) }); setBusy(false); if (result.error) return setError(result.error.message); setMessage('Course published.'); event.currentTarget.reset(); await load(); };
@@ -794,9 +813,10 @@ function Admin() {
   if (loading) return <PageLoader label="Opening the admin workspace" />;
   if (error && !courses.length) return <main className="app-page shell"><PageError message={error} /></main>;
 
-  return <main className="app-page shell admin-page"><header className="admin-hero"><div><p className="eyebrow">PRIVATE ADMIN</p><h1>Build the catalog.</h1><p>Publish courses, add knowledge checks and inspect payment activity.</p></div><div className="admin-count"><strong>{courses.length}</strong><span>courses in the database</span></div></header><div className="admin-tabs"><button className={tab === 'course' ? 'active' : ''} onClick={() => setTab('course')}><BookPlus />Add course</button><button className={tab === 'quiz' ? 'active' : ''} onClick={() => setTab('quiz')}><ClipboardList />Add quiz</button><button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}><ReceiptText />Orders</button></div>{message && <div className="form-message success">{message}</div>}{error && <div className="form-message error">{error}</div>}
+  return <main className="app-page shell admin-page"><header className="admin-hero"><div><p className="eyebrow">PRIVATE ADMIN</p><h1>Build the catalog.</h1><p>Publish courses, add knowledge checks and inspect payment activity.</p></div><div className="admin-count"><strong>{courses.length}</strong><span>courses in the database</span></div></header><div className="admin-tabs"><button className={tab === 'course' ? 'active' : ''} onClick={() => setTab('course')}><BookPlus />Add course</button><button className={tab === 'quiz' ? 'active' : ''} onClick={() => setTab('quiz')}><ClipboardList />Add quiz</button><button className={tab === 'projects' ? 'active' : ''} onClick={() => setTab('projects')}><ClipboardList />Project reviews</button><button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}><ReceiptText />Orders</button></div>{message && <div className="form-message success">{message}</div>}{error && <div className="form-message error">{error}</div>}
     {tab === 'course' && <section className="admin-grid"><form className="panel form admin-form" onSubmit={publishCourse}><p className="eyebrow">COURSE BUILDER</p><h2>Publish a playlist course.</h2><label>TITLE<input name="title" required onChange={(event) => { const slug = event.currentTarget.form?.elements.namedItem('slug') as HTMLInputElement | null; if (slug) slug.value = event.target.value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }} /></label><label>SLUG<input name="slug" pattern="[a-z0-9-]+" required /></label><label>YOUTUBE PLAYLIST URL<input name="playlist" type="url" required /></label><label>DESCRIPTION<textarea name="description" required /></label><label>OUTCOME<textarea name="outcome" required /></label><label>COVER IMAGE URL<input name="cover" type="url" /></label><div className="form-columns"><label>USD PRICE<input name="usd" type="number" step="0.01" defaultValue="2" required /></label><label>INR PRICE<input name="inr" type="number" step="1" defaultValue="159" required /></label></div><button className="button button-primary button-large" disabled={busy}>{busy ? <LoaderCircle className="spin" /> : <Plus />}Publish course</button></form><aside className="panel current-catalog"><p className="eyebrow">CURRENT CATALOG</p><h2>{courses.length} course{courses.length === 1 ? '' : 's'}.</h2>{courses.map((course) => <article key={course.id}><span>{course.status}</span><h3>{course.title}</h3><p>{course.youtube_playlist_id || 'No playlist ID'}</p></article>)}</aside></section>}
     {tab === 'quiz' && <form className="panel form admin-form quiz-builder" onSubmit={publishQuiz}><p className="eyebrow">QUIZ BUILDER</p><h2>Add a paid checkpoint.</h2><div className="form-columns"><label>COURSE<select name="course" required>{courses.map((course) => <option key={course.id} value={course.slug}>{course.title}</option>)}</select></label><label>QUIZ TITLE<input name="title" required /></label></div><label>DESCRIPTION<textarea name="description" /></label><div className="four-columns"><label>POSITION<input name="position" type="number" min="1" defaultValue="1" /></label><label>AFTER LESSON<input name="unlock" type="number" min="0" defaultValue="2" /></label><label>PASS %<input name="pass" type="number" min="1" max="100" defaultValue="70" /></label><label>XP<input name="xp" type="number" min="0" defaultValue="60" /></label></div><div className="question-stack">{questions.map((question, index) => <article className="question-builder" key={index}><div className="question-head"><p className="eyebrow">QUESTION {index + 1}</p><button type="button" className="icon-button" disabled={questions.length === 1} onClick={() => setQuestions((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 /></button></div><label>PROMPT<input value={question.prompt} onChange={(event) => setQuestions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, prompt: event.target.value } : item))} required /></label><label>OPTIONS, ONE PER LINE<textarea value={question.options} onChange={(event) => setQuestions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, options: event.target.value } : item))} required /></label><div className="form-columns"><label>CORRECT OPTION NUMBER<input type="number" min="1" value={question.correct} onChange={(event) => setQuestions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, correct: Number(event.target.value) } : item))} required /></label><label>EXPLANATION<input value={question.explanation} onChange={(event) => setQuestions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, explanation: event.target.value } : item))} required /></label></div></article>)}</div><div className="admin-actions"><button type="button" className="button button-soft" onClick={() => setQuestions((current) => [...current, blankQuestion()])}><Plus />Add question</button><button className="button button-primary button-large" disabled={busy}>{busy ? <LoaderCircle className="spin" /> : <Plus />}Publish quiz</button></div></form>}
+    {tab === 'projects' && <AdminProjectReviews supabase={supabase} />}
     {tab === 'orders' && <section className="panel orders-panel"><p className="eyebrow">LATEST PAYMENT ACTIVITY</p><h2>{orders.length} recent order{orders.length === 1 ? '' : 's'}.</h2>{orders.length ? orders.map((order) => <article key={order.id}><div><strong>{order.challenges?.title || 'Course'}</strong><span>{order.provider} · {order.currency} {order.amount} · {new Date(order.created_at).toLocaleString()}</span></div><b className={`order-status ${order.status}`}>{order.status}</b></article>) : <p>No payment attempts yet.</p>}</section>}
   </main>;
 }
