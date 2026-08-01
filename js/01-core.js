@@ -2,8 +2,15 @@
 
 const SUPABASE_URL = 'https://ijkdhrznxukawugeoocs.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_kwSezylj6T63a7nIMtuxcg_0bQWm6-8';
+const finishAuthLock = async (_name, _timeout, operation) => operation();
 const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    lock: finishAuthLock,
+    lockAcquireTimeout: 1000,
+  },
 });
 
 const app = document.querySelector('#app');
