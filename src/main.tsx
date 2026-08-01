@@ -245,6 +245,18 @@ export async function getLearningData(userId: string, challengeId: string) {
   };
 }
 
+export async function getLearningRoute(slug: string): Promise<LearningState> {
+  const result = await withTimeout(
+    supabase.rpc('get_learning_route', { p_slug: slug }),
+    7000,
+    'Learning route',
+  );
+  if (result.error) throw result.error;
+  const data = result.data as LearningState | null;
+  if (!data?.course) throw new Error('The learning route is incomplete.');
+  return data;
+}
+
 export async function getAdminData() {
   const [courses, orders] = await Promise.all([
     withTimeout(supabase.from('challenges').select('*, challenge_prices(*)').order('created_at', { ascending: false }), 9000, 'Courses'),
@@ -747,7 +759,7 @@ declare global {
     onYouTubeIframeAPIReady?: () => void;
   }
 }
-interface YouTubePlayer { getPlaylist: () => string[]; getDuration: () => number; getCurrentTime: () => number; playVideoAt: (index: number) => void; cueVideoById: (id: string) => void; destroy: () => void; }
+interface YouTubePlayer { getDuration: () => number; getCurrentTime: () => number; cueVideoById: (id: string) => void; destroy: () => void; }
 interface LearningState { course: Challenge; progress: VideoProgress[]; xp: XpEvent[]; quizzes: Quiz[]; attempts: QuizAttempt[]; steps: CourseStep[]; project: CourseProject | null; submission: ProjectSubmission | null; }
 
 function loadYouTubeApi() { return new Promise<void>((resolve, reject) => { if (window.YT?.Player) return resolve(); const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]'); const timeout = window.setTimeout(() => reject(new Error('YouTube took too long to load.')), 12000); window.onYouTubeIframeAPIReady = () => { window.clearTimeout(timeout); resolve(); }; if (!existing) { const script = document.createElement('script'); script.src = 'https://www.youtube.com/iframe_api'; script.onerror = () => reject(new Error('YouTube could not load.')); document.head.append(script); } }); }
@@ -757,24 +769,75 @@ function Learn() {
   const [state, setState] = useState<LearningState | null>(null); const [videoIds, setVideoIds] = useState<string[]>([]); const [index, setIndex] = useState(0); const [watched, setWatched] = useState(0); const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null); const [quizResult, setQuizResult] = useState<Record<string, unknown> | null>(null); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const player = useRef<YouTubePlayer | null>(null); const watchTimer = useRef<number | null>(null);
 
-  useEffect(() => { if (!user) return; let active = true; (async () => { try { const course = await getCourse(slug); const enrollment = await getEnrollment(user.id, course.id); if (!hasPaidAccess(enrollment)) return navigate(`/checkout/${slug}`, { replace: true }); const data = await getLearningData(user.id, course.id); if (active) setState({ course, ...data }); } catch (reason) { if (active) setError(reason instanceof Error ? reason.message : 'The course player could not load.'); } })(); return () => { active = false; }; }, [slug, user, navigate]);
+  useEffect(() => { if (!user) return; let active = true; (async () => { try {
+    const data = await getLearningRoute(slug);
+    if (!active) return;
+    const orderedSteps = [...data.steps].sort((a, b) => a.position - b.position);
+    const ids = orderedSteps.map((step) => step.youtube_video_id || '').filter(Boolean);
+    if (!ids.length || ids.length !== orderedSteps.length) throw new Error('One or more lessons are missing their canonical video link.');
+    const done = new Set(data.progress.filter((item) => item.status === 'completed').map((item) => item.video_id));
+    const firstIncomplete = ids.findIndex((id) => !done.has(id));
+    setState({ ...data, steps: orderedSteps });
+    setVideoIds(ids);
+    setIndex(firstIncomplete >= 0 ? firstIncomplete : Math.max(0, ids.length - 1));
+  } catch (reason) {
+    if (!active) return;
+    const message = reason instanceof Error ? reason.message : 'The course player could not load.';
+    if (message.toLowerCase().includes('payment required')) navigate(`/checkout/${slug}`, { replace: true });
+    else setError(message);
+  } })(); return () => { active = false; }; }, [slug, user, navigate]);
 
-  useEffect(() => { if (!state?.course.youtube_playlist_id) return; let cancelled = false; loadYouTubeApi().then(() => { if (cancelled || !window.YT) return; player.current = new window.YT.Player('youtube-player', { width: '100%', height: '100%', playerVars: { listType: 'playlist', list: state.course.youtube_playlist_id, rel: 0, modestbranding: 1, playsinline: 1 }, events: { onReady: (event: { target: YouTubePlayer }) => { const ids = event.target.getPlaylist() || []; setVideoIds(ids); const done = new Set(state.progress.filter((item) => item.status === 'completed').map((item) => item.video_id)); const first = Math.max(0, ids.findIndex((id) => !done.has(id))); setIndex(first); event.target.cueVideoById(ids[first] || ids[0] || ''); }, onStateChange: (event: { data: number }) => { if (!window.YT) return; if (watchTimer.current) window.clearInterval(watchTimer.current); if (event.data === window.YT.PlayerState.PLAYING) watchTimer.current = window.setInterval(() => { const duration = player.current?.getDuration() || 0; const current = player.current?.getCurrentTime() || 0; setWatched(duration ? Math.min(100, Math.round((current / duration) * 100)) : 0); }, 1000); if (event.data === window.YT.PlayerState.ENDED) setWatched(100); } } }); }).catch((reason) => setError(reason instanceof Error ? reason.message : 'YouTube could not load.')); return () => { cancelled = true; if (watchTimer.current) window.clearInterval(watchTimer.current); player.current?.destroy(); player.current = null; }; }, [state?.course.youtube_playlist_id]);
+  useEffect(() => {
+    if (!state || !videoIds.length) return;
+    let cancelled = false;
+    loadYouTubeApi().then(() => {
+      if (cancelled || !window.YT) return;
+      const initialVideoId = videoIds[index] || videoIds[0];
+      player.current = new window.YT.Player('youtube-player', {
+        width: '100%',
+        height: '100%',
+        videoId: initialVideoId,
+        playerVars: { rel: 0, modestbranding: 1, playsinline: 1, origin: window.location.origin },
+        events: {
+          onReady: (event: { target: YouTubePlayer }) => event.target.cueVideoById(initialVideoId),
+          onStateChange: (event: { data: number }) => {
+            if (!window.YT) return;
+            if (watchTimer.current) window.clearInterval(watchTimer.current);
+            if (event.data === window.YT.PlayerState.PLAYING) watchTimer.current = window.setInterval(() => {
+              const duration = player.current?.getDuration() || 0;
+              const current = player.current?.getCurrentTime() || 0;
+              setWatched(duration ? Math.min(100, Math.round((current / duration) * 100)) : 0);
+            }, 1000);
+            if (event.data === window.YT.PlayerState.ENDED) setWatched(100);
+          },
+        },
+      });
+    }).catch((reason) => setError(reason instanceof Error ? reason.message : 'YouTube could not load.'));
+    return () => {
+      cancelled = true;
+      if (watchTimer.current) window.clearInterval(watchTimer.current);
+      player.current?.destroy();
+      player.current = null;
+    };
+  }, [state?.course.id, videoIds.length]);
 
   const completed = useMemo(() => new Set(state?.progress.filter((item) => item.status === 'completed').map((item) => item.video_id) ?? []), [state?.progress]);
   const passed = useMemo(() => new Set(state?.attempts.filter((item) => item.passed).map((item) => item.quiz_id) ?? []), [state?.attempts]);
   const xp = state?.xp.reduce((sum, event) => sum + Number(event.amount || 0), 0) ?? 0;
   const totalSteps = Math.max(1, videoIds.length + (state?.quizzes.length ?? 0)); const progressPercent = Math.round(((completed.size + passed.size) / totalSteps) * 100);
+  const routeComplete = videoIds.length > 0 && completed.size >= videoIds.length && (state?.quizzes.every((quiz) => passed.has(quiz.id)) ?? false);
 
   const canOpenLesson = (lessonIndex: number) => { if (lessonIndex === 0) return true; if (!completed.has(videoIds[lessonIndex - 1] || '')) return false; return state?.quizzes.filter((quiz) => Number(quiz.unlock_after_video || 0) <= lessonIndex).every((quiz) => passed.has(quiz.id)) ?? true; };
   const openLesson = (lessonIndex: number, force = false) => {
     if (!force && !canOpenLesson(lessonIndex)) return;
+    const exactVideoId = videoIds[lessonIndex];
+    if (!exactVideoId) return setError('This lesson is missing its canonical video link.');
     setIndex(lessonIndex);
     setWatched(0);
     setActiveQuiz(null);
     setQuizResult(null);
     setError('');
-    player.current?.playVideoAt(lessonIndex);
+    player.current?.cueVideoById(exactVideoId);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const selectLesson = (lessonIndex: number) => openLesson(lessonIndex);
@@ -832,13 +895,16 @@ function Learn() {
     <section className="lesson-workspace"><header className="lesson-header"><div><p className="eyebrow">PAID LEARNING SPACE</p><h1>{activeQuiz ? activeQuiz.title : state.steps[index]?.title || `Lesson ${index + 1}`}</h1><p>{activeQuiz ? activeQuiz.description || 'Pass this checkpoint to unlock the next lesson.' : completed.has(videoIds[index] || '') ? 'Completed. Continue to the next required step.' : 'Watch at least 80%, then complete the lesson to advance.'}</p></div><div className="xp-badge"><Trophy /><strong>{xp}</strong><span>XP</span></div></header>{error && <div className="form-message error">{error}</div>}
       {!activeQuiz ? <><div className="player-shell"><div id="youtube-player" /></div><div className="lesson-controls panel"><div><p className="eyebrow">WATCH CHECKPOINT</p><h3>{completed.has(videoIds[index] || '') ? 'Lesson complete.' : `${watched}% watched`}</h3><ProgressBar value={watched} /></div><button className="button button-acid button-large" disabled={busy || (!completed.has(videoIds[index] || '') && watched < 80)} onClick={() => completed.has(videoIds[index] || '') ? continueFromLesson() : void completeLesson()}>{busy ? <><LoaderCircle className="spin" />Saving progress…</> : completed.has(videoIds[index] || '') ? <><ArrowRight />Continue to next step</> : <><CirclePlay />Complete and continue</>}</button></div></> : <section className="quiz-panel panel"><div className="quiz-title"><Trophy /><div><p className="eyebrow">KNOWLEDGE CHECK</p><h2>{activeQuiz.title}</h2><p>Score {activeQuiz.pass_percent}% or higher to pass and earn {activeQuiz.xp_reward} XP.</p></div></div><form onSubmit={submitQuiz}>{[...(activeQuiz.course_quiz_questions ?? [])].sort((a, b) => a.position - b.position).map((question, questionIndex) => <fieldset key={question.id}><legend><span>{questionIndex + 1}</span>{question.prompt}</legend>{question.options.map((option, optionIndex) => <label key={option}><input type="radio" name={`q-${question.id}`} value={optionIndex} required /><span>{option}</span></label>)}</fieldset>)}<button className="button button-primary button-large" disabled={busy}>Submit quiz</button></form>{quizResult && <div className={`quiz-result ${quizResult.passed ? 'pass' : 'fail'}`}><strong>{quizResult.passed ? 'Checkpoint passed' : 'Not passed yet'} · {String(quizResult.score_percent)}%</strong><p>{String(quizResult.correct_count)} of {String(quizResult.total_count)} correct. {Number(quizResult.awarded_xp || 0) > 0 ? `+${String(quizResult.awarded_xp)} XP` : ''}</p>{Boolean(quizResult.passed) && <button type="button" className="button button-acid" onClick={() => continueFromQuiz(activeQuiz)}>Continue to next lesson <ArrowRight /></button>}</div>}</section>}
 
-      <FinalProjectPanel
-        supabase={supabase}
-        project={state.project}
-        submission={state.submission}
-        unlocked={completed.size >= Number(state.course.lesson_count || 0) && state.quizzes.every((quiz) => passed.has(quiz.id))}
-        onSubmitted={(submission) => setState((current) => current ? { ...current, submission } : current)}
-      />
+      {routeComplete && state.project && <section className="route-finale">
+        <div className="route-finale-intro"><p className="eyebrow">COURSE ROUTE COMPLETE</p><h2>Build the final proof.</h2><p>You have finished every lesson and passed every checkpoint. The project is now the only remaining step.</p></div>
+        <FinalProjectPanel
+          supabase={supabase}
+          project={state.project}
+          submission={state.submission}
+          unlocked
+          onSubmitted={(submission) => setState((current) => current ? { ...current, submission } : current)}
+        />
+      </section>}
     </section>
   </main>;
 }

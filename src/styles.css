@@ -24,3 +24,22 @@
   .lesson-controls .button { width: 100%; min-width: 0; }
   .player-shell { border-radius: 16px; }
 }
+
+
+/* Premium learning route */
+.lesson-workspace{min-width:0}
+.player-shell{background:#050506;box-shadow:0 24px 80px rgba(0,0,0,.3)}
+.lesson-controls{position:sticky;bottom:18px;z-index:12;backdrop-filter:blur(18px);background:color-mix(in srgb,var(--panel) 91%,transparent)}
+.lesson-controls .button{min-width:210px}
+.lesson-header h1{max-width:900px}
+.lesson-header>div:first-child>p:last-child{max-width:760px}
+.route-finale{margin-top:44px;padding-top:44px;border-top:1px solid var(--line)}
+.route-finale-intro{max-width:760px;margin-bottom:24px}
+.route-finale-intro h2{margin:0 0 12px;font:600 clamp(38px,5vw,64px)/.95 'Newsreader',serif;letter-spacing:-.04em}
+.route-finale-intro p:last-child{color:var(--muted);line-height:1.65}
+@media(max-width:900px){
+  .lesson-controls{bottom:10px;display:grid;gap:16px}
+  .lesson-controls .button{width:100%;min-width:0}
+  .quest-map{max-height:42vh;overflow:auto}
+  .lesson-workspace{padding-top:24px}
+}
