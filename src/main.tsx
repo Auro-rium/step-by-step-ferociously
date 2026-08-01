@@ -788,7 +788,7 @@ function Learn() {
   } })(); return () => { active = false; }; }, [slug, user, navigate]);
 
   useEffect(() => {
-    if (!state || !videoIds.length) return;
+    if (!state || !videoIds.length || activeQuiz) return;
     let cancelled = false;
     loadYouTubeApi().then(() => {
       if (cancelled || !window.YT) return;
@@ -819,7 +819,7 @@ function Learn() {
       player.current?.destroy();
       player.current = null;
     };
-  }, [state?.course.id, videoIds.length]);
+  }, [state?.course.id, videoIds.length, activeQuiz?.id, index]);
 
   const completed = useMemo(() => new Set(state?.progress.filter((item) => item.status === 'completed').map((item) => item.video_id) ?? []), [state?.progress]);
   const passed = useMemo(() => new Set(state?.attempts.filter((item) => item.passed).map((item) => item.quiz_id) ?? []), [state?.attempts]);
@@ -837,7 +837,8 @@ function Learn() {
     setActiveQuiz(null);
     setQuizResult(null);
     setError('');
-    player.current?.cueVideoById(exactVideoId);
+    // The player is recreated after the quiz panel unmounts. Calling a stale
+    // iframe reference here caused the next lecture to render as a blank area.
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const selectLesson = (lessonIndex: number) => openLesson(lessonIndex);
