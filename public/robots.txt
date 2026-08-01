@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://finish-landing-nine.vercel.app/sitemap.xml

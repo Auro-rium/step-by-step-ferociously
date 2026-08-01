@@ -127,6 +127,21 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+// FINISH product-read cache
+type CacheEntry<T> = { expiresAt: number; promise: Promise<T> };
+const productReadCache = new Map<string, CacheEntry<unknown>>();
+
+function cachedRead<T>(key: string, loader: () => Promise<T>, ttlMs = 30000): Promise<T> {
+  const now = Date.now();
+  const cached = productReadCache.get(key) as CacheEntry<T> | undefined;
+  if (cached && cached.expiresAt > now) return cached.promise;
+  const promise = loader().catch((error) => { productReadCache.delete(key); throw error; });
+  productReadCache.set(key, { expiresAt: now + ttlMs, promise } as CacheEntry<unknown>);
+  return promise;
+}
+
+function prefetchCourse(slug: string) { void getCourse(slug).catch(() => undefined); }
+
 function withTimeout<T>(promise: PromiseLike<T>, ms = 8000, label = 'Request'): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error(`${label} timed out.`)), ms);
@@ -150,6 +165,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
 }
 
 export async function getCatalog(): Promise<Challenge[]> {
+  return cachedRead('catalog', async () => {
   const result = await withTimeout(
     supabase
       .from('challenges')
@@ -162,9 +178,11 @@ export async function getCatalog(): Promise<Challenge[]> {
   );
   if (result.error) throw result.error;
   return (result.data ?? []) as Challenge[];
+  }, 45000);
 }
 
 export async function getCourse(slug: string): Promise<Challenge> {
+  return cachedRead(`course:${slug}`, async () => {
   const result = await withTimeout(
     supabase.from('challenges').select('*, challenge_prices(*)').eq('slug', slug).eq('status', 'published').single(),
     9000,
@@ -172,6 +190,7 @@ export async function getCourse(slug: string): Promise<Challenge> {
   );
   if (result.error) throw result.error;
   return result.data as Challenge;
+  }, 60000);
 }
 
 export async function getEnrollment(userId: string, challengeId: string): Promise<Enrollment | null> {
@@ -246,6 +265,7 @@ export async function getLearningData(userId: string, challengeId: string) {
 }
 
 export async function getLearningRoute(slug: string): Promise<LearningState> {
+  return cachedRead(`learning-route:${slug}`, async () => {
   const result = await withTimeout(
     supabase.rpc('get_learning_route', { p_slug: slug }),
     7000,
@@ -255,6 +275,7 @@ export async function getLearningRoute(slug: string): Promise<LearningState> {
   const data = result.data as LearningState | null;
   if (!data?.course) throw new Error('The learning route is incomplete.');
   return data;
+  }, 12000);
 }
 
 export async function getAdminData() {
@@ -352,7 +373,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
         <p className="eyebrow">APPLICATION ERROR</p>
         <h1>This page failed safely.</h1>
         <p>{this.state.error.message}</p>
-        <button className="button button-primary" onClick={() => window.location.reload()}>Reload FINISH</button>
+        <div className="fatal-actions"><button className="button button-primary" onClick={() => window.location.reload()}>Reload FINISH</button><a className="button button-soft" href="/">Return home</a></div>
       </main>
     );
   }
@@ -361,7 +382,18 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 // ---- src/components/ui.tsx ----
 
 function PageLoader({ label = 'Loading FINISH' }: { label?: string }) {
-  return <div className="page-loader"><LoaderCircle size={22} className="spin" /><span>{label}</span></div>;
+  return <main className="loading-shell" aria-live="polite" aria-busy="true"><div className="loading-brand">FINISH<span>.</span></div><div className="loading-skeleton"><span /><span /><span /></div><div className="loading-status"><LoaderCircle size={18} className="spin" /><span>{label}</span></div></main>;
+}
+
+function ConnectionStatus() {
+  const [online, setOnline] = useState(() => navigator.onLine);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
+  }, []);
+  return online ? null : <div className="connection-banner" role="status">You are offline. FINISH will reconnect automatically.</div>;
 }
 
 function PageError({ title = 'This page could not open.', message, action }: { title?: string; message: string; action?: ReactNode }) {
@@ -423,8 +455,8 @@ function Footer() {
   return <footer className="footer"><div className="shell footer-inner"><Brand /><p>Structured learning on top of excellent YouTube courses.</p><span>© {new Date().getFullYear()} FINISH</span></div></footer>;
 }
 
-function PublicLayout() { return <><SiteHeader /><Outlet /><Footer /></>; }
-function AppLayout() { return <div className="app-surface"><SiteHeader app /><Outlet /></div>; }
+function PublicLayout() { return <><a className="skip-link" href="#main-content">Skip to content</a><ConnectionStatus /><SiteHeader /><div id="main-content"><Outlet /></div><Footer /></>; }
+function AppLayout() { return <div className="app-surface"><a className="skip-link" href="#main-content">Skip to content</a><ConnectionStatus /><SiteHeader app /><div id="main-content"><Outlet /></div></div>; }
 
 // ---- src/components/RequireAuth.tsx ----
 
@@ -476,7 +508,7 @@ function CourseCard({ course, enrollment }: { course: Challenge; enrollment?: En
       <p>{course.description}</p>
       <div className="card-bottom">
         <strong>{owned ? <span className="owned"><CheckCircle2 size={16} />Owned</span> : formatMoney(price.amount, price.currency)}</strong>
-        <Link className="button button-primary" to={owned ? `/learn/${course.slug}` : `/course/${course.slug}`}>{owned ? 'Continue' : 'Explore course'} <ArrowUpRight size={16} /></Link>
+        <Link className="button button-primary" onMouseEnter={() => prefetchCourse(course.slug)} onFocus={() => prefetchCourse(course.slug)} to={owned ? `/learn/${course.slug}` : `/course/${course.slug}`}>{owned ? 'Continue' : 'Explore course'} <ArrowUpRight size={16} /></Link>
       </div>
     </div>
   </article>;
@@ -677,7 +709,7 @@ function Dashboard() {
         const completed = data.progress.filter((item) => item.challenge_id === course.id && item.status === 'completed').length;
         const total = Number(course.lesson_count || Math.max(completed, 1));
         const percent = Math.min(100, Math.round((completed / total) * 100));
-        return <article className="owned-card" key={course.id}><CourseArtwork course={course} compact /><div className="owned-card-copy"><p className="eyebrow">IN PROGRESS</p><h3>{course.title}</h3><p>{completed} of {total} lessons completed</p><ProgressBar value={percent} /><div><span>{percent}% complete</span><Link className="button button-acid" to={`/learn/${course.slug}`}>{completed ? 'Continue' : 'Start course'} <ArrowUpRight size={16} /></Link></div></div></article>;
+        return <article className="owned-card" key={course.id}><CourseArtwork course={course} compact /><div className="owned-card-copy"><p className="eyebrow">IN PROGRESS</p><h3>{course.title}</h3><p>{completed} of {total} lessons completed</p><ProgressBar value={percent} /><div><span>{percent}% complete</span><Link className="button button-acid" onMouseEnter={() => void getLearningRoute(course.slug).catch(() => undefined)} onFocus={() => void getLearningRoute(course.slug).catch(() => undefined)} to={`/learn/${course.slug}`}>{completed ? 'Continue' : 'Start course'} <ArrowUpRight size={16} /></Link></div></div></article>;
       })}</div> : <EmptyState title="Your learning stack is empty." copy="Choose one course from the catalog. Once unlocked, it lives here permanently." action={<Link className="button button-acid" to="/catalog">Open catalog <ArrowUpRight size={16} /></Link>} />}
     </section>
     <section className="dashboard-note panel"><Trophy /><div><h3>{passed} quiz checkpoint{passed === 1 ? '' : 's'} passed.</h3><p>Every passed checkpoint is evidence that you did more than leave the video running in another tab.</p></div></section>
