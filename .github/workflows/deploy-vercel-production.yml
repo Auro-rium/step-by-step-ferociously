@@ -1,0 +1,26 @@
+name: Deploy FINISH to Vercel Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: team_7bpmtqSlsdhYnA7mB1ECS7Gb
+      VERCEL_PROJECT_ID: prj_aOIkyOODMDzvGSmLDtFU2AU8hxCL
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Deploy production
+        run: npx vercel@latest deploy --prod --yes --token="${{ secrets.VERCEL_TOKEN }}"
