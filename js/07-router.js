@@ -1,3 +1,19 @@
+function finishRouteTimeout(promise, label, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs);
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 async function renderRoute() {
   cleanupPlayer();
   const route = routeInfo();
@@ -7,28 +23,36 @@ async function renderRoute() {
     bindGlobalActions();
     scrollToCurrentHash();
 
-    refreshAuth().then(() => {
+    finishRouteTimeout(refreshAuth(), 'Authentication', 3500).then(() => {
       if (authContext.session && location.pathname === '/') navigate('/app', true);
     }).catch(() => {});
     return;
   }
 
   app.innerHTML = '<div class="boot-screen">Loading FINISH.</div>';
+
   try {
-    await refreshAuth();
+    try {
+      await finishRouteTimeout(refreshAuth(), 'Authentication', 3500);
+    } catch {
+      authContext = { session: null, profile: null };
+    }
+
     if (route.name === 'auth') await renderAuth(route.query);
-    else if (route.name === 'home') await renderHome();
-    else if (route.name === 'catalog') await renderCatalog();
-    else if (route.name === 'course') await renderCourseDetail(route.slug);
-    else if (route.name === 'checkout') await renderCheckout(route.slug);
-    else if (route.name === 'learn') await renderLearn(route.slug);
-    else if (route.name === 'admin') await renderAdmin();
+    else if (route.name === 'home') await finishRouteTimeout(renderHome(), 'Your courses', 10000);
+    else if (route.name === 'catalog') await finishRouteTimeout(renderCatalog(), 'Course catalog', 10000);
+    else if (route.name === 'course') await finishRouteTimeout(renderCourseDetail(route.slug), 'Course page', 10000);
+    else if (route.name === 'checkout') await finishRouteTimeout(renderCheckout(route.slug), 'Checkout', 10000);
+    else if (route.name === 'learn') await finishRouteTimeout(renderLearn(route.slug), 'Course player', 12000);
+    else if (route.name === 'admin') await finishRouteTimeout(renderAdmin(), 'Admin page', 12000);
     else renderNotFound();
+
     bindGlobalActions();
     scrollToCurrentHash();
   } catch (error) {
     console.error(error);
-    app.innerHTML = `${publicHeader()}<main class="shell"><section class="page-head"><div class="eyebrow">PRODUCT ERROR</div><h1 class="display">Something broke.</h1><p class="lead">${escapeHtml(error?.message || String(error))}</p><button class="btn" onclick="location.reload()">Reload</button></section></main>`;
+    app.innerHTML = `${publicHeader()}<main class="shell"><section class="page-head"><div class="eyebrow">PAGE ERROR</div><h1 class="display">This page could not open.</h1><p class="lead">${escapeHtml(error?.message || String(error))}</p><div class="hero-actions"><a class="btn" href="/" data-link>Back home</a><button class="btn ghost" onclick="location.reload()">Reload</button></div></section></main>${footer()}`;
+    bindGlobalActions();
   }
 }
 
@@ -52,11 +76,29 @@ function bindGlobalActions() {
     event.preventDefault();
     navigate(url.pathname + url.search + url.hash);
   }));
-  document.querySelectorAll('[data-signout]').forEach((button) => button.onclick = async () => { await client.auth.signOut(); authContext = { session: null, profile: null }; navigate('/', true); });
+
+  document.querySelectorAll('[data-signout]').forEach((button) => {
+    button.onclick = async () => {
+      try {
+        await finishRouteTimeout(client.auth.signOut({ scope: 'local' }), 'Sign out', 1500);
+      } catch {
+        try {
+          Object.keys(localStorage)
+            .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+            .forEach((key) => localStorage.removeItem(key));
+        } catch {}
+      }
+      authContext = { session: null, profile: null };
+      navigate('/', true);
+    };
+  });
 }
 
 window.addEventListener('popstate', renderRoute);
-client.auth.onAuthStateChange((event) => {
-  if (event === 'SIGNED_OUT') navigate('/', true);
+client.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_OUT') authContext = { session: null, profile: null };
+  if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
+    authContext = { session, profile: authContext.profile };
+  }
 });
 renderRoute();
