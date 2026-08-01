@@ -80,7 +80,12 @@ function passedQuizIds() {
 
 function lessonUnlocked(index) {
   if (index === 0) return true;
-  return completedIds().has(currentCourseState.ids[index - 1]);
+  const previousLessonComplete = completedIds().has(currentCourseState.ids[index - 1]);
+  if (!previousLessonComplete) return false;
+  const passed = passedQuizIds();
+  return currentCourseState.quizzes
+    .filter((quiz) => Number(quiz.unlock_after_video || 0) <= index)
+    .every((quiz) => passed.has(quiz.id));
 }
 
 function quizUnlocked(quiz) {
