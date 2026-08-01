@@ -1,0 +1,29 @@
+name: Materialize FINISH TypeScript rebuild
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: ${{ !contains(github.event.head_commit.message, '[materialized]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Replace repository with clean source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .bootstrap/chunk-* | tr -d '\n' | base64 --decode > /tmp/finish-source.tar.gz
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          tar -xzf /tmp/finish-source.tar.gz -C .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Rebuild FINISH from scratch in TypeScript [materialized]"
+          git push origin HEAD:main
