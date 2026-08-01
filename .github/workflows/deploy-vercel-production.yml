@@ -1,4 +1,4 @@
-name: FINISH CI/CD
+name: FINISH CI
 
 on:
   push:
@@ -11,13 +11,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: finish-production-${{ github.ref }}
+  group: finish-ci-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   NODE_VERSION: '22'
-  VERCEL_ORG_ID: team_7bpmtqSlsdhYnA7mB1ECS7Gb
-  VERCEL_PROJECT_ID: prj_aOIkyOODMDzvGSmLDtFU2AU8hxCL
 
 jobs:
   validate:
@@ -51,61 +49,6 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  deploy-production:
-    name: Deploy exact commit to Vercel production
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    needs: validate
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment:
-      name: production
-      url: https://finish-landing-nine.vercel.app
-    steps:
-      - name: Checkout exact commit
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - name: Fail clearly when deployment credentials are missing
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          if [ -z "$VERCEL_TOKEN" ]; then
-            echo "Missing GitHub Actions secret: VERCEL_TOKEN"
-            echo "Create a Vercel access token and add it under Repository Settings > Secrets and variables > Actions."
-            exit 1
-          fi
-
-      - name: Install locked dependencies
-        run: npm ci --no-audit --no-fund
-
-      - name: Pull production project configuration
-        run: npx --yes vercel@latest pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
-
-      - name: Build using Vercel production configuration
-        run: npx --yes vercel@latest build --prod --token="${{ secrets.VERCEL_TOKEN }}"
-
-      - name: Deploy prebuilt output to production
-        id: deploy
-        run: |
-          DEPLOYMENT_URL=$(npx --yes vercel@latest deploy --prebuilt --prod --yes --token="${{ secrets.VERCEL_TOKEN }}")
-          echo "url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
-          echo "Deployed: $DEPLOYMENT_URL"
-
-      - name: Verify stable production alias
-        run: |
-          for attempt in 1 2 3 4 5 6; do
-            STATUS=$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' https://finish-landing-nine.vercel.app || true)
-            if [ "$STATUS" = "200" ]; then
-              echo "Production alias is healthy."
-              exit 0
-            fi
-            echo "Alias returned HTTP $STATUS on attempt $attempt."
-            sleep 10
-          done
-          echo "Production alias did not become healthy."
-          exit 1
+      - name: Native deployment note
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: echo "Vercel Git integration deploys this exact main-branch commit to production after the push."
