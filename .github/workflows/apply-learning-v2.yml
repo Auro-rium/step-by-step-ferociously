@@ -1,10 +1,10 @@
-name: Apply FINISH learning experience upgrade
+name: Apply FINISH premium learning route
 
 on:
   push:
     branches: [main]
     paths:
-      - scripts/upgrade_learning_experience.py
+      - scripts/apply_fast_canonical_lessons.py
       - .github/workflows/apply-learning-v2.yml
   workflow_dispatch:
 
@@ -13,9 +13,9 @@ permissions:
 
 jobs:
   upgrade:
-    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[learn-v2]') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[canonical-learn]') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,20 +24,20 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - name: Apply deterministic learner upgrade
-        run: python scripts/upgrade_learning_experience.py
-      - name: Install dependencies
+      - name: Apply canonical premium learner upgrade
+        run: python scripts/apply_fast_canonical_lessons.py
+      - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
       - name: Typecheck and build
-        run: npm run build
+        run: npm run typecheck && npm run build
       - name: Commit verified product changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/main.tsx src/styles.css
+          git add src/main.tsx src/styles.css index.html
           if git diff --cached --quiet; then
-            echo "Learning upgrade already applied."
+            echo "Premium learning route already applied."
             exit 0
           fi
-          git commit -m "Rebuild paid learning flow and deterministic progression [learn-v2]"
+          git commit -m "Use canonical lesson links and premium fast learning route [canonical-learn]"
           git push origin HEAD:main
