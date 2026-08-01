@@ -421,3 +421,19 @@ button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* FINISH catalog v2 */
+.catalog-toolbar{display:grid;gap:18px;margin:-20px 0 26px;padding:20px;border:1px solid var(--line);border-radius:22px;background:var(--panel)}
+.catalog-search{width:100%;min-height:54px;padding:0 20px;border:1px solid var(--line);border-radius:15px;background:#0e0e12;color:var(--ink);outline:none}
+.catalog-search:focus{border-color:var(--purple);box-shadow:0 0 0 4px color-mix(in srgb,var(--purple) 18%,transparent)}
+.category-chips{display:flex;gap:9px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.category-chips::-webkit-scrollbar{display:none}
+.category-chip{flex:0 0 auto;padding:10px 14px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font:700 11px 'Manrope';cursor:pointer}
+.category-chip:hover,.category-chip.active{color:#111;background:var(--acid);border-color:var(--acid)}
+.catalog-result-line{display:flex;justify-content:space-between;margin:0 2px 20px;color:var(--muted);font:700 11px 'Manrope';letter-spacing:.08em;text-transform:uppercase}
+.course-card-category{display:inline-flex;margin-bottom:14px;padding:7px 10px;border-radius:999px;background:color-mix(in srgb,var(--purple) 16%,transparent);color:var(--purple-2);font:800 10px 'Manrope';letter-spacing:.07em;text-transform:uppercase}
+.course-artwork img{opacity:1}
+.course-artwork .artwork-glow,.course-artwork .artwork-grid{display:none}
+.course-artwork .artwork-copy{display:none}
+@media(max-width:700px){.catalog-toolbar{padding:14px}.catalog-result-line{gap:15px;align-items:flex-start}.catalog-grid{grid-template-columns:1fr}.course-artwork{height:230px}}

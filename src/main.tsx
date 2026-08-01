@@ -487,9 +487,39 @@ function formatMoney(amount: number, currency: string) {
   catch { return `${currency} ${amount}`; }
 }
 
+function courseCategory(course: Challenge) {
+  const value = `${course.slug} ${course.title}`.toLowerCase();
+  if (/(artificial|machine-learning|deep-learning|computer-vision)/.test(value)) return 'AI & ML';
+  if (/(security|cryptography)/.test(value)) return 'Security';
+  if (/(linear-algebra|probabil|mathematics|matrix|signals)/.test(value)) return 'Mathematics';
+  if (/(algorithm|data-structures)/.test(value)) return 'Algorithms';
+  if (/database/.test(value)) return 'Databases';
+  if (/(operating-system|distributed|computation-structures|performance|software-construction|computer-graphics)/.test(value)) return 'Systems';
+  return 'Programming';
+}
+
+function courseCoverData(course: Challenge) {
+  const category = courseCategory(course);
+  const palettes: Record<string, [string, string, string]> = {
+    'AI & ML': ['#07111f', '#7157ff', '#46d8ff'],
+    Security: ['#071713', '#16d99b', '#d6ff4b'],
+    Mathematics: ['#071226', '#286cff', '#a98cff'],
+    Algorithms: ['#101025', '#7657ff', '#d6ff4b'],
+    Databases: ['#061527', '#0077ff', '#28d8ff'],
+    Systems: ['#160d18', '#ff4d6d', '#7657ff'],
+    Programming: ['#071322', '#ffb020', '#7657ff'],
+  };
+  const [base, accent, glow] = palettes[category] || palettes.Programming;
+  const safeTitle = course.title.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[char] || char));
+  const initials = course.title.split(/\s+/).filter(Boolean).slice(0, 3).map((part) => part[0]).join('').toUpperCase();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675"><defs><radialGradient id="g" cx="75%" cy="20%"><stop stop-color="${glow}" stop-opacity=".5"/><stop offset="1" stop-color="${base}" stop-opacity="0"/></radialGradient><linearGradient id="l" x2="1" y2="1"><stop stop-color="${base}"/><stop offset="1" stop-color="#04050a"/></linearGradient><pattern id="p" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#fff" stroke-opacity=".055"/></pattern></defs><rect width="1200" height="675" fill="url(#l)"/><rect width="1200" height="675" fill="url(#p)"/><circle cx="900" cy="150" r="310" fill="url(#g)"/><g fill="none" stroke="${accent}" stroke-width="3" stroke-opacity=".75"><circle cx="930" cy="270" r="170"/><circle cx="930" cy="270" r="110"/><path d="M760 270h340M930 100v340M810 150l240 240M1050 150L810 390"/></g><g fill="${glow}"><circle cx="930" cy="100" r="10"/><circle cx="1100" cy="270" r="10"/><circle cx="810" cy="390" r="10"/><circle cx="810" cy="150" r="10"/></g><rect x="70" y="62" width="165" height="42" rx="21" fill="${accent}"/><text x="152" y="90" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-size="20" font-weight="700">${category}</text><text x="70" y="170" fill="#fff" font-family="Arial,sans-serif" font-size="34" font-weight="800" letter-spacing="3">FINISH COURSE</text><foreignObject x="70" y="210" width="670" height="285"><div xmlns="http://www.w3.org/1999/xhtml" style="color:white;font:700 58px/1.02 Arial,sans-serif;letter-spacing:-2px;display:flex;align-items:flex-end;height:100%;padding-bottom:12px">${safeTitle}</div></foreignObject><text x="70" y="610" fill="${glow}" font-family="Arial,sans-serif" font-size="25" font-weight="700">FULL PLAYLIST • QUIZ • FINAL PROJECT</text><text x="1080" y="600" text-anchor="end" fill="#fff" fill-opacity=".12" font-family="Arial,sans-serif" font-size="110" font-weight="900">${initials}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 function CourseArtwork({ course, compact = false }: { course: Challenge; compact?: boolean }) {
+  const cover = course.cover_image_url || courseCoverData(course);
   return <div className={`course-artwork ${compact ? 'compact' : ''}`}>
-    {course.cover_image_url ? <img src={course.cover_image_url} alt="" loading="lazy" /> : null}
+    <img src={cover} alt="" loading="lazy" decoding="async" />
     <div className="artwork-glow" />
     <div className="artwork-grid" />
     <div className="artwork-copy"><small>{course.eyebrow || 'FINISH ORIGINAL'}</small><strong>{course.title}</strong></div>
@@ -503,7 +533,7 @@ function CourseCard({ course, enrollment }: { course: Challenge; enrollment?: En
   return <article className="course-card">
     <CourseArtwork course={course} />
     <div className="course-card-body">
-      <div className="course-meta"><Pill><Clock3 size={13} />{course.duration_label || 'Self-paced'}</Pill><Pill><PlayCircle size={13} />{course.lesson_count || 'Playlist'} lessons</Pill></div>
+      <span className="course-card-category">{courseCategory(course)}</span><div className="course-meta"><Pill><Clock3 size={13} />{course.duration_label || 'Self-paced'}</Pill><Pill><PlayCircle size={13} />{course.lesson_count || 'Playlist'} lessons</Pill></div>
       <h2>{course.title}</h2>
       <p>{course.description}</p>
       <div className="card-bottom">
@@ -568,6 +598,8 @@ function Catalog() {
   const [enrollments, setEnrollments] = useState<Map<string, Enrollment>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('All');
 
   useEffect(() => {
     let active = true;
@@ -586,10 +618,27 @@ function Catalog() {
     return () => { active = false; };
   }, [user]);
 
+  const categories = useMemo(() => ['All', ...Array.from(new Set(courses.map(courseCategory))).sort()], [courses]);
+  const visibleCourses = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return courses.filter((course) => {
+      const matchesCategory = category === 'All' || courseCategory(course) === category;
+      const haystack = `${course.title} ${course.description} ${course.source_channel || ''} ${course.difficulty || ''}`.toLowerCase();
+      return matchesCategory && (!needle || haystack.includes(needle));
+    });
+  }, [courses, query, category]);
+
   if (loading) return <PageLoader label="Loading the catalog" />;
   return <main className="page shell">
     <header className="page-hero"><p className="eyebrow">THE CATALOG</p><h1>Choose one thing worth finishing.</h1><p>Focused learning products built around strong YouTube courses. One route, clear checkpoints and permanent access.</p></header>
-    {error ? <PageError message={error} action={<button className="button button-primary" onClick={() => window.location.reload()}>Try again</button>} /> : courses.length ? <section className="catalog-grid">{courses.map((course) => <CourseCard key={course.id} course={course} enrollment={enrollments.get(course.id)} />)}</section> : <EmptyState title="No courses are published." copy="The catalog is ready. The first course still needs to be published from the admin workspace." action={<Link className="button button-primary" to="/">Return home</Link>} />}
+    {!error && courses.length > 0 && <>
+      <section className="catalog-toolbar" aria-label="Course filters">
+        <input className="catalog-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search courses, subjects or universities…" aria-label="Search courses" />
+        <div className="category-chips" role="list" aria-label="Course categories">{categories.map((item) => <button key={item} className={`category-chip ${category === item ? 'active' : ''}`} onClick={() => setCategory(item)}>{item}</button>)}</div>
+      </section>
+      <div className="catalog-result-line"><span>{visibleCourses.length} course{visibleCourses.length === 1 ? '' : 's'}</span><span>{category === 'All' ? 'All categories' : category}</span></div>
+    </>}
+    {error ? <PageError message={error} action={<button className="button button-primary" onClick={() => window.location.reload()}>Try again</button>} /> : visibleCourses.length ? <section className="catalog-grid">{visibleCourses.map((course) => <CourseCard key={course.id} course={course} enrollment={enrollments.get(course.id)} />)}</section> : courses.length ? <EmptyState title="No courses match this filter." copy="Try a different category or a broader search." action={<button className="button button-primary" onClick={() => { setQuery(''); setCategory('All'); }}>Clear filters</button>} /> : <EmptyState title="No courses are published." copy="The catalog is ready. The first course still needs to be published from the admin workspace." action={<Link className="button button-primary" to="/">Return home</Link>} />}
   </main>;
 }
 
