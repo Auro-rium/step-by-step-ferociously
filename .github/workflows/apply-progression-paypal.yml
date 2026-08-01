@@ -1,0 +1,39 @@
+name: Apply FINISH progression and PayPal upgrade
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/apply_progression_paypal.py
+      - .github/workflows/apply-progression-paypal.yml
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    if: ${{ !contains(github.event.head_commit.message, '[progression-paypal]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply product patch
+        run: python scripts/apply_progression_paypal.py
+      - name: Install and build
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: Commit production changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.tsx src/course-product.tsx api/region.ts README.md
+          if git diff --cached --quiet; then
+            echo "Upgrade already applied."
+            exit 0
+          fi
+          git commit -m "Fix course progression and replace Stripe with PayPal [progression-paypal]"
+          git push origin HEAD:main
