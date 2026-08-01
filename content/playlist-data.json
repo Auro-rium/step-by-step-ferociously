@@ -1,0 +1,550 @@
+[
+  {
+    "playlist_id": "PLWl7jvxH18r0u5VRZsOjhghNXc_Ec4dZz",
+    "source_url": "https://youtube.com/playlist?list=PLWl7jvxH18r0u5VRZsOjhghNXc_Ec4dZz",
+    "title": "CS-310 Scalable Software Architectures",
+    "description": "This class was formerly numbered CS-396",
+    "channel": "Steve Tarzia",
+    "thumbnail": null,
+    "lesson_count": 19,
+    "total_duration_seconds": 57944,
+    "lessons": [
+      {
+        "position": 1,
+        "video_id": "XNCahxAk7og",
+        "title": "CS-310 Lecture 01 - Types of Scaling",
+        "duration_seconds": 2664,
+        "url": "https://www.youtube.com/watch?v=XNCahxAk7og",
+        "channel": null
+      },
+      {
+        "position": 2,
+        "video_id": "Mw_Ks6F_eWs",
+        "title": "CS-310 Lecture 02 - HTTP and Web Servers",
+        "duration_seconds": 2975,
+        "url": "https://www.youtube.com/watch?v=Mw_Ks6F_eWs",
+        "channel": null
+      },
+      {
+        "position": 3,
+        "video_id": "XnFsxRDnthg",
+        "title": "CS-310 Lecture 03 - Stateless Services",
+        "duration_seconds": 3142,
+        "url": "https://www.youtube.com/watch?v=XnFsxRDnthg",
+        "channel": null
+      },
+      {
+        "position": 4,
+        "video_id": "jqR8GJIq1Kc",
+        "title": "CS-310 Lecture 04 - Proxies and Caches",
+        "duration_seconds": 2177,
+        "url": "https://www.youtube.com/watch?v=jqR8GJIq1Kc",
+        "channel": null
+      },
+      {
+        "position": 5,
+        "video_id": "2F4CYIqCdYo",
+        "title": "CS-310 Lecture 05 - REST APIs and Data Serialization",
+        "duration_seconds": 3462,
+        "url": "https://www.youtube.com/watch?v=2F4CYIqCdYo",
+        "channel": null
+      },
+      {
+        "position": 6,
+        "video_id": "ZCJBHMXs3-w",
+        "title": "CS-310 Lecture 06 - Microservices",
+        "duration_seconds": 2404,
+        "url": "https://www.youtube.com/watch?v=ZCJBHMXs3-w",
+        "channel": null
+      },
+      {
+        "position": 7,
+        "video_id": "HCboeU7OtJw",
+        "title": "CS-310 Lecture 07 - Load Balancing",
+        "duration_seconds": 3138,
+        "url": "https://www.youtube.com/watch?v=HCboeU7OtJw",
+        "channel": null
+      },
+      {
+        "position": 8,
+        "video_id": "CnuMUoJjaPo",
+        "title": "CS-310 Lecture 08 - Relational Databases",
+        "duration_seconds": 4961,
+        "url": "https://www.youtube.com/watch?v=CnuMUoJjaPo",
+        "channel": null
+      },
+      {
+        "position": 9,
+        "video_id": "Ajy7C9-UIus",
+        "title": "CS-310 Lecture 09 - SQL Database Scaling",
+        "duration_seconds": 3192,
+        "url": "https://www.youtube.com/watch?v=Ajy7C9-UIus",
+        "channel": null
+      },
+      {
+        "position": 10,
+        "video_id": "i_zSNvPcatk",
+        "title": "CS-310 Lecture 10 - Authentication",
+        "duration_seconds": 1444,
+        "url": "https://www.youtube.com/watch?v=i_zSNvPcatk",
+        "channel": null
+      },
+      {
+        "position": 11,
+        "video_id": "tHeqboKEG8c",
+        "title": "CS-310 Lecture 11 - Basic Architecture Design",
+        "duration_seconds": 3350,
+        "url": "https://www.youtube.com/watch?v=tHeqboKEG8c",
+        "channel": null
+      },
+      {
+        "position": 12,
+        "video_id": "8qdoQRDu-Cc",
+        "title": "CS-310 Lecture 12 - Push Notifications",
+        "duration_seconds": 2298,
+        "url": "https://www.youtube.com/watch?v=8qdoQRDu-Cc",
+        "channel": null
+      },
+      {
+        "position": 13,
+        "video_id": "t-99_cPL1O8",
+        "title": "CS-310 Lecture 13 - Distributed NoSQL Databases",
+        "duration_seconds": 2358,
+        "url": "https://www.youtube.com/watch?v=t-99_cPL1O8",
+        "channel": null
+      },
+      {
+        "position": 14,
+        "video_id": "Vpq6TUY7v6I",
+        "title": "CS-310 Lecture 14 - Distributed DB Consistency",
+        "duration_seconds": 3633,
+        "url": "https://www.youtube.com/watch?v=Vpq6TUY7v6I",
+        "channel": null
+      },
+      {
+        "position": 15,
+        "video_id": "NS2Yr79fC7k",
+        "title": "CS-310 Lecture 15 - Choosing a Database",
+        "duration_seconds": 3521,
+        "url": "https://www.youtube.com/watch?v=NS2Yr79fC7k",
+        "channel": null
+      },
+      {
+        "position": 16,
+        "video_id": "ozVhE0psew4",
+        "title": "CS-310 Lecture 16 - Asynchronous Processing",
+        "duration_seconds": 3272,
+        "url": "https://www.youtube.com/watch?v=ozVhE0psew4",
+        "channel": null
+      },
+      {
+        "position": 17,
+        "video_id": "lBsWD8hI-xQ",
+        "title": "CS-310 Lecture 17 - Twitter Design Exercise",
+        "duration_seconds": 2235,
+        "url": "https://www.youtube.com/watch?v=lBsWD8hI-xQ",
+        "channel": null
+      },
+      {
+        "position": 18,
+        "video_id": "kCQQqtNe2HI",
+        "title": "CS-310 Lecture 18 - Computing Platforms",
+        "duration_seconds": 4866,
+        "url": "https://www.youtube.com/watch?v=kCQQqtNe2HI",
+        "channel": null
+      },
+      {
+        "position": 19,
+        "video_id": "7w6kNDf7DB0",
+        "title": "CS-310 Lecture 19 - Distributed Computing",
+        "duration_seconds": 2852,
+        "url": "https://www.youtube.com/watch?v=7w6kNDf7DB0",
+        "channel": null
+      }
+    ]
+  },
+  {
+    "playlist_id": "PLF2K2xZjNEf97A_uBCwEl61sdxWVP7VWC",
+    "source_url": "https://youtube.com/playlist?list=PLF2K2xZjNEf97A_uBCwEl61sdxWVP7VWC",
+    "title": "CS 162: Operating Systems and Systems Programming - Berkeley",
+    "description": "",
+    "channel": "Baibars Bošnjaci",
+    "thumbnail": null,
+    "lesson_count": 27,
+    "total_duration_seconds": 139724,
+    "lessons": [
+      {
+        "position": 1,
+        "video_id": "pPzVV2kkGHc",
+        "title": "CS162 Lecture 1: What is an Operating System?",
+        "duration_seconds": 4983,
+        "url": "https://www.youtube.com/watch?v=pPzVV2kkGHc",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 2,
+        "video_id": "4FpG1DcvHzc",
+        "title": "CS162 Lecture 2: Four Fundamental OS Concepts",
+        "duration_seconds": 4939,
+        "url": "https://www.youtube.com/watch?v=4FpG1DcvHzc",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 3,
+        "video_id": "QSep-J6vtdc",
+        "title": "CS162 Lecture 3: Abstractions 1: Threads and Processes",
+        "duration_seconds": 5273,
+        "url": "https://www.youtube.com/watch?v=QSep-J6vtdc",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 4,
+        "video_id": "WHmmT_syaG8",
+        "title": "CS162 Lecture 4: Abstractions 2: Files and I/O",
+        "duration_seconds": 5296,
+        "url": "https://www.youtube.com/watch?v=WHmmT_syaG8",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 5,
+        "video_id": "MKcSCaP0ZrQ",
+        "title": "CS162 Lecture 5: Abstractions 3: IPC, Pipes and Sockets",
+        "duration_seconds": 5202,
+        "url": "https://www.youtube.com/watch?v=MKcSCaP0ZrQ",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 6,
+        "video_id": "5uyGn147rr0",
+        "title": "CS162: Lecture 6: Synchronization 1: Concurrency and Mutual Exclusion",
+        "duration_seconds": 5429,
+        "url": "https://www.youtube.com/watch?v=5uyGn147rr0",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 7,
+        "video_id": "utYC2tKDdoQ",
+        "title": "CS162: Lecture 6.5: Concurrency and Mutual Exclusion (Supplemental)",
+        "duration_seconds": 2850,
+        "url": "https://www.youtube.com/watch?v=utYC2tKDdoQ",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 8,
+        "video_id": "gRX-YxdFQzk",
+        "title": "CS162 Lecture 7: Synchronization 2: Semaphores (Con't), Lock Implementation, Atomic Instructions",
+        "duration_seconds": 5254,
+        "url": "https://www.youtube.com/watch?v=gRX-YxdFQzk",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 9,
+        "video_id": "yqsqjqLGMe4",
+        "title": "CS162 Lecture 8: Synchronization 3: Atomic Instructions (Con't), Monitors, Readers/Writers",
+        "duration_seconds": 5311,
+        "url": "https://www.youtube.com/watch?v=yqsqjqLGMe4",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 10,
+        "video_id": "snp580kqCto",
+        "title": "CS162 Lecture 9: Synchronization 4: Monitors and Readers/Writers (Con't), Process Structure",
+        "duration_seconds": 5348,
+        "url": "https://www.youtube.com/watch?v=snp580kqCto",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 11,
+        "video_id": "U7P4FbrraYs",
+        "title": "CS162 Lecture 10: Scheduling 1: Concepts and Classic Policies",
+        "duration_seconds": 5286,
+        "url": "https://www.youtube.com/watch?v=U7P4FbrraYs",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 12,
+        "video_id": "v388OYBkfME",
+        "title": "CS162 Lecture 11: Scheduling 2: Case Studies, Real Time, and Forward Progress",
+        "duration_seconds": 5241,
+        "url": "https://www.youtube.com/watch?v=v388OYBkfME",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 13,
+        "video_id": "FDwJ6EW4dCM",
+        "title": "CS162 Lecture 12: Scheduling 3: Deadlock",
+        "duration_seconds": 5181,
+        "url": "https://www.youtube.com/watch?v=FDwJ6EW4dCM",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 14,
+        "video_id": "1SJeLcI8otk",
+        "title": "CS162 Lecture 13: Memory 1: Address Translation and Virtual Memory",
+        "duration_seconds": 5321,
+        "url": "https://www.youtube.com/watch?v=1SJeLcI8otk",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 15,
+        "video_id": "aaCeY4YCCmM",
+        "title": "CS162 Lecture 14: Memory 2: Virtual Memory (Con't), Caching and TLBs",
+        "duration_seconds": 5073,
+        "url": "https://www.youtube.com/watch?v=aaCeY4YCCmM",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 16,
+        "video_id": "IBgkKX6DUTM",
+        "title": "CS162 Lecture 15: Memory 3: Caching and TLBs (Con't), Demand Paging",
+        "duration_seconds": 5235,
+        "url": "https://www.youtube.com/watch?v=IBgkKX6DUTM",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 17,
+        "video_id": "THoYkBItSkk",
+        "title": "CS162 Lecture 16: Memory 4: Demand Paging Policies",
+        "duration_seconds": 5380,
+        "url": "https://www.youtube.com/watch?v=THoYkBItSkk",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 18,
+        "video_id": "5pXaixRmj8U",
+        "title": "CS162 Lecture 17: Demand Paging (Finished), General I/O, Storage Devices",
+        "duration_seconds": 5071,
+        "url": "https://www.youtube.com/watch?v=5pXaixRmj8U",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 19,
+        "video_id": "obZ3HQaDly4",
+        "title": "CS162 Lecture 18: General I/O (Con't), Storage Devices, Performance",
+        "duration_seconds": 5265,
+        "url": "https://www.youtube.com/watch?v=obZ3HQaDly4",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 20,
+        "video_id": "CrpLw5s2HQs",
+        "title": "CS162 Lecture 19: Filesystems 1: Performance (Con't), Queueing Theory, Filesystem Design",
+        "duration_seconds": 5331,
+        "url": "https://www.youtube.com/watch?v=CrpLw5s2HQs",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 21,
+        "video_id": "9UQza7XNt6M",
+        "title": "CS162 Lecture 20: Filesystems 2: Filesystem Design (Con't), Filesystem Case Studies",
+        "duration_seconds": 5344,
+        "url": "https://www.youtube.com/watch?v=9UQza7XNt6M",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 22,
+        "video_id": "NpM0n6xBbrA",
+        "title": "CS162 Lecture 21: Filesystems 3: Case Studies (Con't), Buffering, Reliability, and Transactions",
+        "duration_seconds": 5211,
+        "url": "https://www.youtube.com/watch?v=NpM0n6xBbrA",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 23,
+        "video_id": "50IU9PwlKas",
+        "title": "CS162 Lecture 22: Transactions (Con't), End-to-End Arguments, Distributed Decision Making",
+        "duration_seconds": 5233,
+        "url": "https://www.youtube.com/watch?v=50IU9PwlKas",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 24,
+        "video_id": "DDmExpQj1VI",
+        "title": "CS162 Lecture 23: Distributed Decision Making (Con't), Networking and TCP/IP",
+        "duration_seconds": 5226,
+        "url": "https://www.youtube.com/watch?v=DDmExpQj1VI",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 25,
+        "video_id": "nKqqtV-33k0",
+        "title": "CS162 Lecture 24: Networking and TCP/IP (Con't), RPC, Distributed File Systems",
+        "duration_seconds": 5330,
+        "url": "https://www.youtube.com/watch?v=nKqqtV-33k0",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 26,
+        "video_id": "ROq0rGmR3GE",
+        "title": "CS162 Lecture 25: Distributed Storage, NFS and AFS, Key Value Stores",
+        "duration_seconds": 5419,
+        "url": "https://www.youtube.com/watch?v=ROq0rGmR3GE",
+        "channel": "John Kubiatowicz"
+      },
+      {
+        "position": 27,
+        "video_id": "cgsU5R5dY2Y",
+        "title": "CS162 Lecture 26 (Optional): Key Value Stores (Con't), Chord, DataCapsules, Quantum Computing",
+        "duration_seconds": 5692,
+        "url": "https://www.youtube.com/watch?v=cgsU5R5dY2Y",
+        "channel": "John Kubiatowicz"
+      }
+    ]
+  },
+  {
+    "playlist_id": "PLWl7jvxH18r3nnotitKkyAjq268PQGc0-",
+    "source_url": "https://youtube.com/playlist?list=PLWl7jvxH18r3nnotitKkyAjq268PQGc0-",
+    "title": "CS-340 Intro to Computer Networking",
+    "description": "Lecture videos are from Fall 2020 at Northwestern University.  This course was formerly known as EECS-340.",
+    "channel": "Steve Tarzia",
+    "thumbnail": null,
+    "lesson_count": 18,
+    "total_duration_seconds": 81428,
+    "lessons": [
+      {
+        "position": 1,
+        "video_id": "EN0efud3M5U",
+        "title": "Networking Lecture 01 - Introduction",
+        "duration_seconds": 4554,
+        "url": "https://www.youtube.com/watch?v=EN0efud3M5U",
+        "channel": null
+      },
+      {
+        "position": 2,
+        "video_id": "dZx8WdQI3Hw",
+        "title": "Networking Lecture 02 - The Internet Core and Layering",
+        "duration_seconds": 4584,
+        "url": "https://www.youtube.com/watch?v=dZx8WdQI3Hw",
+        "channel": null
+      },
+      {
+        "position": 3,
+        "video_id": "Bf7GQjXFuGI",
+        "title": "Networking Lecture 03 - Application layer protocols, HTTP",
+        "duration_seconds": 5268,
+        "url": "https://www.youtube.com/watch?v=Bf7GQjXFuGI",
+        "channel": null
+      },
+      {
+        "position": 4,
+        "video_id": "gGy27UJ8RBo",
+        "title": "Networking Lecture 04 - DNS: Domain Name Service",
+        "duration_seconds": 4448,
+        "url": "https://www.youtube.com/watch?v=gGy27UJ8RBo",
+        "channel": null
+      },
+      {
+        "position": 5,
+        "video_id": "nm31LTDSYXc",
+        "title": "Networking Lecture 05 - Reliable Transport",
+        "duration_seconds": 4520,
+        "url": "https://www.youtube.com/watch?v=nm31LTDSYXc",
+        "channel": null
+      },
+      {
+        "position": 6,
+        "video_id": "FpTGN42qygw",
+        "title": "Networking Lecture 06 - TCP",
+        "duration_seconds": 4958,
+        "url": "https://www.youtube.com/watch?v=FpTGN42qygw",
+        "channel": null
+      },
+      {
+        "position": 7,
+        "video_id": "OOkcaOgue7E",
+        "title": "Networking Lecture 07 - TCP Congestion Control",
+        "duration_seconds": 4336,
+        "url": "https://www.youtube.com/watch?v=OOkcaOgue7E",
+        "channel": null
+      },
+      {
+        "position": 8,
+        "video_id": "uiIfEZA6_e0",
+        "title": "Networking Lecture 08 - IPv4 Addressing",
+        "duration_seconds": 4267,
+        "url": "https://www.youtube.com/watch?v=uiIfEZA6_e0",
+        "channel": null
+      },
+      {
+        "position": 9,
+        "video_id": "JsxgXvesGIA",
+        "title": "Networking Lecture 09 - NAT and IPv6",
+        "duration_seconds": 4920,
+        "url": "https://www.youtube.com/watch?v=JsxgXvesGIA",
+        "channel": null
+      },
+      {
+        "position": 10,
+        "video_id": "LbBbUP5n7vE",
+        "title": "Networking Lecture 10 - Router Internals and Routing Algorithms",
+        "duration_seconds": 4793,
+        "url": "https://www.youtube.com/watch?v=LbBbUP5n7vE",
+        "channel": null
+      },
+      {
+        "position": 11,
+        "video_id": "mXf3CKuu_vU",
+        "title": "Networking Lecture 11 - BGP Routing",
+        "duration_seconds": 5792,
+        "url": "https://www.youtube.com/watch?v=mXf3CKuu_vU",
+        "channel": null
+      },
+      {
+        "position": 12,
+        "video_id": "Bxy_E1RXjpw",
+        "title": "Networking Lecture 12 - Broadcast",
+        "duration_seconds": 3699,
+        "url": "https://www.youtube.com/watch?v=Bxy_E1RXjpw",
+        "channel": null
+      },
+      {
+        "position": 13,
+        "video_id": "z_hkQIJ2WnU",
+        "title": "Networking Lecture 13 - Medium Access Control",
+        "duration_seconds": 3734,
+        "url": "https://www.youtube.com/watch?v=z_hkQIJ2WnU",
+        "channel": null
+      },
+      {
+        "position": 14,
+        "video_id": "_JGQ8hCCYUU",
+        "title": "Networking Lecture 14 - Ethernet",
+        "duration_seconds": 5427,
+        "url": "https://www.youtube.com/watch?v=_JGQ8hCCYUU",
+        "channel": null
+      },
+      {
+        "position": 15,
+        "video_id": "SevaQ6YIiXs",
+        "title": "Networking Lecture 15 - Encryption and Anonymity",
+        "duration_seconds": 4636,
+        "url": "https://www.youtube.com/watch?v=SevaQ6YIiXs",
+        "channel": null
+      },
+      {
+        "position": 16,
+        "video_id": "eFZ17yw_FWE",
+        "title": "Networking Lecture 16 - Authentication",
+        "duration_seconds": 5051,
+        "url": "https://www.youtube.com/watch?v=eFZ17yw_FWE",
+        "channel": null
+      },
+      {
+        "position": 17,
+        "video_id": "9v4_1pUJVGc",
+        "title": "Networking Lecture 17 - Mobility",
+        "duration_seconds": 2795,
+        "url": "https://www.youtube.com/watch?v=9v4_1pUJVGc",
+        "channel": null
+      },
+      {
+        "position": 18,
+        "video_id": "LPM00IXbsxw",
+        "title": "Networking Lecture 18 - QUIC and Course Review",
+        "duration_seconds": 3646,
+        "url": "https://www.youtube.com/watch?v=LPM00IXbsxw",
+        "channel": null
+      }
+    ]
+  }
+]
