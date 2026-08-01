@@ -4,7 +4,9 @@ const REPO = 'step-by-step-ferociously';
 const ALLOWED_FILES = new Set([
   'styles.css',
   'theme.css',
+  'js/00-external-loaders.js',
   'js/01-core.js',
+  'js/01a-auth-safety.js',
   'js/02-public-auth.js',
   'js/02a-site-polish.js',
   'js/03-home-checkout.js',
