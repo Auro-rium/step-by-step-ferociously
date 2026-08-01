@@ -9,9 +9,16 @@ A premium structured-learning product built with React, TypeScript, Vite and Sup
 - `/course/:slug` sales and outcome page
 - `/auth` sign in and immediate account creation
 - `/app` learner dashboard
-- `/checkout/:slug` Stripe / Razorpay checkout
-- `/learn/:slug` paid playlist route, progress, XP and quizzes
-- `/admin` admin-only course, quiz and order management
+- `/checkout/:slug` PayPal / Razorpay checkout
+- `/learn/:slug` paid ordered route with lessons, quiz gates, progress, XP and final project
+- `/admin` admin-only course, quiz, project review and order management
+
+## Payment routing
+
+- India: Razorpay in INR
+- International: PayPal in USD
+
+Private payment credentials belong in Supabase Edge Function Secrets. See `PAYMENT.md`.
 
 ## Local development
 
