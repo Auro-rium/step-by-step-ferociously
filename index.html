@@ -8,10 +8,6 @@
   <title>FINISH. — Finish the course you started.</title>
   <script>
     (() => {
-      const ASSET_REF = 'cb1819e24f292134135f829aa7151d6bebbbd79f';
-      const BUILD = '20260801-1504';
-      let currentAsset = 'startup';
-
       try {
         const saved = localStorage.getItem('finish-theme');
         const theme = saved === 'light' || saved === 'dark'
@@ -22,101 +18,78 @@
       } catch {
         document.documentElement.dataset.theme = 'light';
       }
-
-      function clearFinishSession() {
-        try {
-          Object.keys(localStorage)
-            .filter((key) => key.startsWith('sb-') || key.startsWith('finish-'))
-            .forEach((key) => {
-              if (key !== 'finish-theme') localStorage.removeItem(key);
-            });
-          sessionStorage.clear();
-        } catch {}
-        location.replace(`${location.pathname}?boot=${Date.now()}`);
-      }
-
-      function showBootError(error) {
-        const root = document.querySelector('#app');
-        if (!root) return;
-        const detail = error?.message || String(error || 'Unknown startup error');
-        root.innerHTML = `
-          <main style="min-height:100vh;display:grid;place-items:center;padding:32px;background:#f3eee4;color:#11110f;font-family:system-ui,sans-serif">
-            <section style="max-width:620px;border:1px solid #d2c9bb;border-radius:14px;padding:32px;background:#fbf7ef">
-              <strong style="font-size:22px">FINISH.</strong>
-              <h1 style="font:500 50px/1 Georgia,serif;margin:24px 0 14px">The app could not start.</h1>
-              <p style="line-height:1.65">Startup stopped at <b>${currentAsset}</b>.</p>
-              <p style="line-height:1.65;color:#6f6a62">${detail}</p>
-              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:24px">
-                <button onclick="location.reload()" style="border:0;border-radius:6px;background:#111;color:#fff;font-weight:800;padding:14px 18px;cursor:pointer">Reload</button>
-                <button id="clear-finish-session" style="border:1px solid #111;border-radius:6px;background:transparent;color:#111;font-weight:800;padding:14px 18px;cursor:pointer">Clear old session</button>
-              </div>
-            </section>
-          </main>`;
-        document.querySelector('#clear-finish-session')?.addEventListener('click', clearFinishSession);
-      }
-
-      function loadScript(src, label, timeoutMs = 12000) {
-        currentAsset = label;
-        return new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          const timer = setTimeout(() => {
-            script.remove();
-            reject(new Error(`${label} timed out`));
-          }, timeoutMs);
-          script.src = src;
-          script.async = false;
-          script.onload = () => {
-            clearTimeout(timer);
-            resolve();
-          };
-          script.onerror = () => {
-            clearTimeout(timer);
-            reject(new Error(`${label} failed to download`));
-          };
-          document.head.append(script);
-        });
-      }
-
-      function assetUrl(path) {
-        return `/api/static?path=${encodeURIComponent(path)}&ref=${ASSET_REF}&build=${BUILD}`;
-      }
-
-      async function bootFinish() {
-        try {
-          await loadScript(`/api/vendor?name=supabase&build=${BUILD}`, 'Supabase client', 15000);
-          if (!window.supabase?.createClient) throw new Error('Supabase client loaded without createClient');
-
-          const files = [
-            'js/01-core.js',
-            'js/01a-auth-safety.js',
-            'js/02-public-auth.js',
-            'js/02a-site-polish.js',
-            'js/09-theme.js',
-            'js/03-home-checkout.js',
-            'js/04-learn-player.js',
-            'js/05-learn-route-quiz.js',
-            'js/06-admin.js',
-            'js/00-external-loaders.js',
-            'js/08-auth-recovery.js',
-            'js/07-router.js',
-          ];
-
-          for (const file of files) await loadScript(assetUrl(file), file);
-          currentAsset = 'complete';
-        } catch (error) {
-          console.error('FINISH boot failed at', currentAsset, error);
-          showBootError(error);
-        }
-      }
-
-      window.addEventListener('DOMContentLoaded', bootFinish, { once: true });
     })();
   </script>
-  <link rel="stylesheet" href="/api/static?path=styles.css&ref=cb1819e24f292134135f829aa7151d6bebbbd79f&build=20260801-1504" />
-  <link rel="stylesheet" href="/api/static?path=theme.css&ref=cb1819e24f292134135f829aa7151d6bebbbd79f&build=20260801-1504" />
+  <link rel="stylesheet" href="/styles.css?v=20260801-1511" />
+  <link rel="stylesheet" href="/theme.css?v=20260801-1511" />
+  <script defer src="/api/vendor?name=supabase&v=20260801-1511"></script>
+  <script defer src="/js/01-core.js?v=20260801-1511"></script>
+  <script defer src="/js/01a-auth-safety.js?v=20260801-1511"></script>
+  <script defer src="/js/02-public-auth.js?v=20260801-1511"></script>
+  <script defer src="/js/02a-site-polish.js?v=20260801-1511"></script>
+  <script defer src="/js/09-theme.js?v=20260801-1511"></script>
+  <script defer src="/js/03-home-checkout.js?v=20260801-1511"></script>
+  <script defer src="/js/04-learn-player.js?v=20260801-1511"></script>
+  <script defer src="/js/05-learn-route-quiz.js?v=20260801-1511"></script>
+  <script defer src="/js/06-admin.js?v=20260801-1511"></script>
+  <script defer src="/js/00-external-loaders.js?v=20260801-1511"></script>
+  <script defer src="/js/08-auth-recovery.js?v=20260801-1511"></script>
+  <script defer src="/js/07-router.js?v=20260801-1511"></script>
 </head>
 <body>
-  <div id="app"><div class="boot-screen">Loading FINISH.</div></div>
+  <div id="app">
+    <header class="topbar shell">
+      <a class="brand" href="/">FINISH<b>.</b></a>
+      <nav class="nav-links">
+        <a href="/catalog">Courses</a>
+        <a href="#how">How it works</a>
+      </nav>
+      <a class="btn" href="/auth">Sign in</a>
+    </header>
+
+    <main>
+      <section class="hero shell">
+        <div>
+          <div class="eyebrow">Learn one course at a time</div>
+          <h1 class="display">You saved the playlist. <span>Now finish it.</span></h1>
+          <p class="lead">FINISH puts a YouTube course in order, checks what you understood, and remembers where you stopped.</p>
+          <div class="hero-actions">
+            <a class="btn" href="/catalog">See available courses →</a>
+            <a class="btn ghost" href="#how">How FINISH works</a>
+          </div>
+        </div>
+        <div class="hero-product">
+          <div class="network-cover">
+            <div class="cover-copy"><small>ONE COURSE AT A TIME</small><h2>A clear route from the first lesson to the last.</h2></div>
+          </div>
+          <div class="product-metrics">
+            <div><strong>Lessons in order</strong><span>Know what comes next</span></div>
+            <div><strong>Quick checks</strong><span>See what actually stuck</span></div>
+            <div><strong>Saved progress</strong><span>Return to the right lesson</span></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="ticker">WATCH ONE · CHECK YOUR UNDERSTANDING · KEEP GOING · FINISH ·</div>
+
+      <section id="how" class="section shell">
+        <div class="split">
+          <h2 class="display">A playlist is useful. A plan is better.</h2>
+          <div>
+            <p>YouTube has excellent courses, but it is easy to skip lessons, lose your place, or confuse watching with learning.</p>
+            <p>FINISH keeps the original videos and adds the parts that help you complete them: a fixed order, short quizzes, saved progress, and one clear next step.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <article class="feature"><span>01</span><h3>Follow the course</h3><p>Lessons stay in order, so you always know what comes next and what you have completed.</p></article>
+          <article class="feature"><span>02</span><h3>Check what you learned</h3><p>Short quizzes show whether the lesson made sense before you move on.</p></article>
+          <article class="feature"><span>03</span><h3>Continue from the right place</h3><p>Your course home remembers your progress, even after you close the tab.</p></article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer shell"><span>FINISH. A clear way through a YouTube course.</span><span>The videos still belong to their original creators.</span></footer>
+  </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
