@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Browse the courses available on FINISH." />
+  <meta name="color-scheme" content="light dark" />
+  <title>Courses — FINISH.</title>
+  <script>
+    (() => {
+      window.__FINISH_BOOT_STAGE__ = 'catalog-html';
+      window.__FINISH_LAST_ERROR__ = '';
+      try {
+        const saved = localStorage.getItem('finish-theme');
+        const theme = saved === 'light' || saved === 'dark' ? saved : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      } catch {}
+      const rememberError = (value) => { window.__FINISH_LAST_ERROR__ = String(value || 'Unknown browser error'); };
+      addEventListener('error', (event) => rememberError(event.message || event.error));
+      addEventListener('unhandledrejection', (event) => rememberError(event.reason?.message || event.reason));
+      addEventListener('DOMContentLoaded', () => setTimeout(() => {
+        if (window.__FINISH_ROUTER_READY__) return;
+        const notice = document.createElement('aside');
+        notice.className = 'boot-diagnostic';
+        notice.innerHTML = `<strong>FINISH did not start.</strong><span>${window.__FINISH_LAST_ERROR__ || `Stopped at ${window.__FINISH_BOOT_STAGE__ || 'unknown stage'}.`}</span><button type="button" onclick="location.reload()">Reload</button>`;
+        document.body.append(notice);
+      }, 7000));
+    })();
+  </script>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/theme.css" />
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar shell">
+      <a class="brand" href="/">FINISH<b>.</b></a>
+      <nav class="nav-links"><a href="/catalog">Courses</a><a href="/#how">How it works</a></nav>
+      <a class="btn" href="/auth">Sign in</a>
+    </header>
+    <main class="shell">
+      <section class="page-head">
+        <div class="eyebrow">THE CATALOG</div>
+        <h1 class="display">Choose one thing worth finishing.</h1>
+        <p class="lead">Courses load here as soon as FINISH connects. The page itself no longer depends on the router to exist.</p>
+      </section>
+      <section class="catalog-grid">
+        <div class="empty-state"><h2>Loading available courses…</h2><p>The catalog will replace this message when the application is ready.</p></div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
