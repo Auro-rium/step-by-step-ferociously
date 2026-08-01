@@ -14,10 +14,24 @@ async function renderRoute() {
     else if (route.name === 'admin') await renderAdmin();
     else renderNotFound();
     bindGlobalActions();
+    scrollToCurrentHash();
   } catch (error) {
     console.error(error);
     app.innerHTML = `${publicHeader()}<main class="shell"><section class="page-head"><div class="eyebrow">PRODUCT ERROR</div><h1 class="display">Something broke.</h1><p class="lead">${escapeHtml(error?.message || String(error))}</p><button class="btn" onclick="location.reload()">Reload</button></section></main>`;
   }
+}
+
+function scrollToCurrentHash() {
+  if (!location.hash) {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    return;
+  }
+  const id = decodeURIComponent(location.hash.slice(1));
+  requestAnimationFrame(() => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 }
 
 function bindGlobalActions() {
