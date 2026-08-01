@@ -1,7 +1,7 @@
 from pathlib import Path
 
-path = Path('src/main.tsx')
-text = path.read_text()
+main_path = Path('src/main.tsx')
+text = main_path.read_text()
 
 anchor = "export async function getAdminData() {"
 insert = """export async function getLearningRoute(slug: string): Promise<LearningState> {
@@ -47,16 +47,18 @@ new_load = """  useEffect(() => { if (!user) return; let active = true; (async (
     else setError(message);
   } })(); return () => { active = false; }; }, [slug, user, navigate]);
 """
-if old_load not in text:
+if old_load in text:
+    text = text.replace(old_load, new_load, 1)
+elif "const data = await getLearningRoute(slug);" not in text:
     raise SystemExit('learning load block not found')
-text = text.replace(old_load, new_load, 1)
 
 start = text.find("  useEffect(() => { if (!state?.course.youtube_playlist_id) return;")
-end_marker = "  const completed = useMemo("
-end = text.find(end_marker, start)
-if start < 0 or end < 0:
-    raise SystemExit('YouTube effect block not found')
-new_player = """  useEffect(() => {
+if start >= 0:
+    end_marker = "  const completed = useMemo("
+    end = text.find(end_marker, start)
+    if end < 0:
+        raise SystemExit('YouTube effect end not found')
+    new_player = """  useEffect(() => {
     if (!state || !videoIds.length) return;
     let cancelled = false;
     loadYouTubeApi().then(() => {
@@ -91,12 +93,79 @@ new_player = """  useEffect(() => {
   }, [state?.course.id, videoIds.length]);
 
 """
-text = text[:start] + new_player + text[end:]
+    text = text[:start] + new_player + text[end:]
 
 old_select = "const selectLesson = (lessonIndex: number) => { if (!canOpenLesson(lessonIndex)) return; setIndex(lessonIndex); setWatched(0); setActiveQuiz(null); setQuizResult(null); player.current?.playVideoAt(lessonIndex); };"
-new_select = "const selectLesson = (lessonIndex: number) => { if (!canOpenLesson(lessonIndex)) return; const exactVideoId = videoIds[lessonIndex]; if (!exactVideoId) return setError('This lesson is missing its video link.'); setError(''); setIndex(lessonIndex); setWatched(0); setActiveQuiz(null); setQuizResult(null); player.current?.cueVideoById(exactVideoId); };"
-if old_select not in text:
+new_select = "const selectLesson = (lessonIndex: number) => { if (!canOpenLesson(lessonIndex)) return; const exactVideoId = videoIds[lessonIndex]; if (!exactVideoId) return setError('This lesson is missing its video link.'); setError(''); setIndex(lessonIndex); setWatched(0); setActiveQuiz(null); setQuizResult(null); player.current?.cueVideoById(exactVideoId); window.scrollTo({ top: 0, behavior: 'smooth' }); };"
+if old_select in text:
+    text = text.replace(old_select, new_select, 1)
+elif "player.current?.cueVideoById(exactVideoId)" not in text:
     raise SystemExit('selectLesson block not found')
-text = text.replace(old_select, new_select, 1)
 
-path.write_text(text)
+progress_anchor = "  const totalSteps = Math.max(1, videoIds.length + (state?.quizzes.length ?? 0)); const progressPercent = Math.round(((completed.size + passed.size) / totalSteps) * 100);"
+progress_replacement = progress_anchor + "\n  const routeComplete = videoIds.length > 0 && completed.size >= videoIds.length && (state?.quizzes.every((quiz) => passed.has(quiz.id)) ?? false);"
+if "const routeComplete =" not in text:
+    if progress_anchor not in text:
+        raise SystemExit('progress anchor not found')
+    text = text.replace(progress_anchor, progress_replacement, 1)
+
+old_project = """      <FinalProjectPanel
+        supabase={supabase}
+        project={state.project}
+        submission={state.submission}
+        unlocked={completed.size >= Number(state.course.lesson_count || 0) && state.quizzes.every((quiz) => passed.has(quiz.id))}
+        onSubmitted={(submission) => setState((current) => current ? { ...current, submission } : current)}
+      />
+"""
+new_project = """      {routeComplete && state.project && <section className=\"route-finale\">
+        <div className=\"route-finale-intro\"><p className=\"eyebrow\">COURSE ROUTE COMPLETE</p><h2>Build the final proof.</h2><p>You have finished every lesson and passed every checkpoint. The project is now the only remaining step.</p></div>
+        <FinalProjectPanel
+          supabase={supabase}
+          project={state.project}
+          submission={state.submission}
+          unlocked
+          onSubmitted={(submission) => setState((current) => current ? { ...current, submission } : current)}
+        />
+      </section>}
+"""
+if old_project in text:
+    text = text.replace(old_project, new_project, 1)
+elif "route-finale" not in text:
+    raise SystemExit('final project block not found')
+
+main_path.write_text(text)
+
+styles_path = Path('src/styles.css')
+styles = styles_path.read_text()
+css = """
+/* Premium learning route */
+.lesson-workspace{min-width:0}
+.player-shell{background:#050506;box-shadow:0 24px 80px rgba(0,0,0,.3)}
+.lesson-controls{position:sticky;bottom:18px;z-index:12;backdrop-filter:blur(18px);background:color-mix(in srgb,var(--panel) 91%,transparent)}
+.lesson-controls .button{min-width:210px}
+.lesson-header h1{max-width:900px}
+.lesson-header>div:first-child>p:last-child{max-width:760px}
+.route-finale{margin-top:44px;padding-top:44px;border-top:1px solid var(--line)}
+.route-finale-intro{max-width:760px;margin-bottom:24px}
+.route-finale-intro h2{margin:0 0 12px;font:600 clamp(38px,5vw,64px)/.95 'Newsreader',serif;letter-spacing:-.04em}
+.route-finale-intro p:last-child{color:var(--muted);line-height:1.65}
+@media(max-width:900px){
+  .lesson-controls{bottom:10px;display:grid;gap:16px}
+  .lesson-controls .button{width:100%;min-width:0}
+  .quest-map{max-height:42vh;overflow:auto}
+  .lesson-workspace{padding-top:24px}
+}
+"""
+if "/* Premium learning route */" not in styles:
+    styles += "\n" + css
+styles_path.write_text(styles)
+
+index_path = Path('index.html')
+index = index_path.read_text()
+extra = """    <link rel=\"dns-prefetch\" href=\"//www.youtube.com\" />
+    <link rel=\"preconnect\" href=\"https://i.ytimg.com\" crossorigin />
+    <link rel=\"preconnect\" href=\"https://www.google.com\" crossorigin />
+"""
+if 'https://i.ytimg.com' not in index:
+    index = index.replace('    <link rel="preconnect" href="https://www.youtube.com" crossorigin />\n', '    <link rel="preconnect" href="https://www.youtube.com" crossorigin />\n' + extra)
+index_path.write_text(index)
