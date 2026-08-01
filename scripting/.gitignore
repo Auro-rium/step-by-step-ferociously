@@ -1,6 +1,0 @@
-.env
-venv
-logs
-data
-credentials.json
-token.json
