@@ -84,8 +84,8 @@ function publicHeader(active = '') {
       <a class="brand" href="/" data-link>FINISH<b>.</b></a>
       <nav class="nav-links">
         <a class="${active === 'catalog' ? 'active' : ''}" href="/catalog" data-link>Catalog</a>
-        <a href="/#how">How it works</a>
-        <a href="/#pricing">Pricing</a>
+        <a href="/#how" data-link>How it works</a>
+        <a href="/#pricing" data-link>Pricing</a>
       </nav>
       <a class="btn ${signedIn ? 'soft' : ''}" href="${signedIn ? '/app' : '/auth'}" data-link>${signedIn ? 'My home' : 'Sign in'}</a>
     </header>`;
