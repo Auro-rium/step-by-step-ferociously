@@ -1,0 +1,178 @@
+name: Catalog v2 covers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/catalog-v2-covers.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Apply catalog v2
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          main = Path('src/main.tsx')
+          css = Path('src/styles.css')
+          text = main.read_text()
+
+          if 'function courseCategory(course: Challenge)' not in text:
+              anchor = "function CourseArtwork({ course, compact = false }: { course: Challenge; compact?: boolean }) {"
+              helper = r'''function courseCategory(course: Challenge) {
+            const value = `${course.slug} ${course.title}`.toLowerCase();
+            if (/(artificial|machine-learning|deep-learning|computer-vision)/.test(value)) return 'AI & ML';
+            if (/(security|cryptography)/.test(value)) return 'Security';
+            if (/(linear-algebra|probabil|mathematics|matrix|signals)/.test(value)) return 'Mathematics';
+            if (/(algorithm|data-structures)/.test(value)) return 'Algorithms';
+            if (/database/.test(value)) return 'Databases';
+            if (/(operating-system|distributed|computation-structures|performance|software-construction|computer-graphics)/.test(value)) return 'Systems';
+            return 'Programming';
+          }
+
+          function courseCoverData(course: Challenge) {
+            const category = courseCategory(course);
+            const palettes: Record<string, [string, string, string]> = {
+              'AI & ML': ['#07111f', '#7157ff', '#46d8ff'],
+              Security: ['#071713', '#16d99b', '#d6ff4b'],
+              Mathematics: ['#071226', '#286cff', '#a98cff'],
+              Algorithms: ['#101025', '#7657ff', '#d6ff4b'],
+              Databases: ['#061527', '#0077ff', '#28d8ff'],
+              Systems: ['#160d18', '#ff4d6d', '#7657ff'],
+              Programming: ['#071322', '#ffb020', '#7657ff'],
+            };
+            const [base, accent, glow] = palettes[category] || palettes.Programming;
+            const safeTitle = course.title.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[char] || char));
+            const initials = course.title.split(/\s+/).filter(Boolean).slice(0, 3).map((part) => part[0]).join('').toUpperCase();
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675"><defs><radialGradient id="g" cx="75%" cy="20%"><stop stop-color="${glow}" stop-opacity=".5"/><stop offset="1" stop-color="${base}" stop-opacity="0"/></radialGradient><linearGradient id="l" x2="1" y2="1"><stop stop-color="${base}"/><stop offset="1" stop-color="#04050a"/></linearGradient><pattern id="p" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#fff" stroke-opacity=".055"/></pattern></defs><rect width="1200" height="675" fill="url(#l)"/><rect width="1200" height="675" fill="url(#p)"/><circle cx="900" cy="150" r="310" fill="url(#g)"/><g fill="none" stroke="${accent}" stroke-width="3" stroke-opacity=".75"><circle cx="930" cy="270" r="170"/><circle cx="930" cy="270" r="110"/><path d="M760 270h340M930 100v340M810 150l240 240M1050 150L810 390"/></g><g fill="${glow}"><circle cx="930" cy="100" r="10"/><circle cx="1100" cy="270" r="10"/><circle cx="810" cy="390" r="10"/><circle cx="810" cy="150" r="10"/></g><rect x="70" y="62" width="165" height="42" rx="21" fill="${accent}"/><text x="152" y="90" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-size="20" font-weight="700">${category}</text><text x="70" y="170" fill="#fff" font-family="Arial,sans-serif" font-size="34" font-weight="800" letter-spacing="3">FINISH COURSE</text><foreignObject x="70" y="210" width="670" height="285"><div xmlns="http://www.w3.org/1999/xhtml" style="color:white;font:700 58px/1.02 Arial,sans-serif;letter-spacing:-2px;display:flex;align-items:flex-end;height:100%;padding-bottom:12px">${safeTitle}</div></foreignObject><text x="70" y="610" fill="${glow}" font-family="Arial,sans-serif" font-size="25" font-weight="700">FULL PLAYLIST • QUIZ • FINAL PROJECT</text><text x="1080" y="600" text-anchor="end" fill="#fff" fill-opacity=".12" font-family="Arial,sans-serif" font-size="110" font-weight="900">${initials}</text></svg>`;
+            return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+          }
+
+          '''
+              if anchor not in text:
+                  raise SystemExit('CourseArtwork anchor missing')
+              text = text.replace(anchor, helper + anchor, 1)
+
+          old_art = '''function CourseArtwork({ course, compact = false }: { course: Challenge; compact?: boolean }) {
+            return <div className={`course-artwork ${compact ? 'compact' : ''}`}>
+              {course.cover_image_url ? <img src={course.cover_image_url} alt="" loading="lazy" /> : null}'''
+          new_art = '''function CourseArtwork({ course, compact = false }: { course: Challenge; compact?: boolean }) {
+            const cover = course.cover_image_url || courseCoverData(course);
+            return <div className={`course-artwork ${compact ? 'compact' : ''}`}>
+              <img src={cover} alt="" loading="lazy" decoding="async" />'''
+          if old_art in text:
+              text = text.replace(old_art, new_art, 1)
+
+          old_meta = '<div className="course-meta"><Pill><Clock3 size={13} />{course.duration_label || \'Self-paced\'}</Pill><Pill><PlayCircle size={13} />{course.lesson_count || \'Playlist\'} lessons</Pill></div>'
+          new_meta = '<span className="course-card-category">{courseCategory(course)}</span><div className="course-meta"><Pill><Clock3 size={13} />{course.duration_label || \'Self-paced\'}</Pill><Pill><PlayCircle size={13} />{course.lesson_count || \'Playlist\'} lessons</Pill></div>'
+          if old_meta in text:
+              text = text.replace(old_meta, new_meta, 1)
+
+          start = text.find('function Catalog() {')
+          end = text.find('\n\n// ---- src/pages/Course.tsx ----', start)
+          if start < 0 or end < 0:
+              raise SystemExit('Catalog boundaries missing')
+          catalog = r'''function Catalog() {
+            const { user } = useSession();
+            const [courses, setCourses] = useState<Challenge[]>([]);
+            const [enrollments, setEnrollments] = useState<Map<string, Enrollment>>(new Map());
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState('');
+            const [query, setQuery] = useState('');
+            const [category, setCategory] = useState('All');
+
+            useEffect(() => {
+              let active = true;
+              (async () => {
+                try {
+                  const rows = await getCatalog();
+                  let map = new Map<string, Enrollment>();
+                  if (user) {
+                    const result = await supabase.from('enrollments').select('*').eq('user_id', user.id);
+                    map = new Map(((result.data ?? []) as Enrollment[]).map((row) => [row.challenge_id, row]));
+                  }
+                  if (active) { setCourses(rows); setEnrollments(map); }
+                } catch (reason) { if (active) setError(reason instanceof Error ? reason.message : 'The catalog could not load.'); }
+                finally { if (active) setLoading(false); }
+              })();
+              return () => { active = false; };
+            }, [user]);
+
+            const categories = useMemo(() => ['All', ...Array.from(new Set(courses.map(courseCategory))).sort()], [courses]);
+            const visibleCourses = useMemo(() => {
+              const needle = query.trim().toLowerCase();
+              return courses.filter((course) => {
+                const matchesCategory = category === 'All' || courseCategory(course) === category;
+                const haystack = `${course.title} ${course.description} ${course.source_channel || ''} ${course.difficulty || ''}`.toLowerCase();
+                return matchesCategory && (!needle || haystack.includes(needle));
+              });
+            }, [courses, query, category]);
+
+            if (loading) return <PageLoader label="Loading the catalog" />;
+            return <main className="page shell">
+              <header className="page-hero"><p className="eyebrow">THE CATALOG</p><h1>Choose one thing worth finishing.</h1><p>Focused learning products built around strong YouTube courses. One route, clear checkpoints and permanent access.</p></header>
+              {!error && courses.length > 0 && <>
+                <section className="catalog-toolbar" aria-label="Course filters">
+                  <input className="catalog-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search courses, subjects or universities…" aria-label="Search courses" />
+                  <div className="category-chips" role="list" aria-label="Course categories">{categories.map((item) => <button key={item} className={`category-chip ${category === item ? 'active' : ''}`} onClick={() => setCategory(item)}>{item}</button>)}</div>
+                </section>
+                <div className="catalog-result-line"><span>{visibleCourses.length} course{visibleCourses.length === 1 ? '' : 's'}</span><span>{category === 'All' ? 'All categories' : category}</span></div>
+              </>}
+              {error ? <PageError message={error} action={<button className="button button-primary" onClick={() => window.location.reload()}>Try again</button>} /> : visibleCourses.length ? <section className="catalog-grid">{visibleCourses.map((course) => <CourseCard key={course.id} course={course} enrollment={enrollments.get(course.id)} />)}</section> : courses.length ? <EmptyState title="No courses match this filter." copy="Try a different category or a broader search." action={<button className="button button-primary" onClick={() => { setQuery(''); setCategory('All'); }}>Clear filters</button>} /> : <EmptyState title="No courses are published." copy="The catalog is ready. The first course still needs to be published from the admin workspace." action={<Link className="button button-primary" to="/">Return home</Link>} />}
+            </main>;
+          }'''
+          text = text[:start] + catalog + text[end:]
+          main.write_text(text)
+
+          styles = css.read_text()
+          marker = '/* FINISH catalog v2 */'
+          if marker not in styles:
+              styles += r'''
+
+          /* FINISH catalog v2 */
+          .catalog-toolbar{display:grid;gap:18px;margin:-20px 0 26px;padding:20px;border:1px solid var(--line);border-radius:22px;background:var(--panel)}
+          .catalog-search{width:100%;min-height:54px;padding:0 20px;border:1px solid var(--line);border-radius:15px;background:#0e0e12;color:var(--ink);outline:none}
+          .catalog-search:focus{border-color:var(--purple);box-shadow:0 0 0 4px color-mix(in srgb,var(--purple) 18%,transparent)}
+          .category-chips{display:flex;gap:9px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+          .category-chips::-webkit-scrollbar{display:none}
+          .category-chip{flex:0 0 auto;padding:10px 14px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font:700 11px 'Manrope';cursor:pointer}
+          .category-chip:hover,.category-chip.active{color:#111;background:var(--acid);border-color:var(--acid)}
+          .catalog-result-line{display:flex;justify-content:space-between;margin:0 2px 20px;color:var(--muted);font:700 11px 'Manrope';letter-spacing:.08em;text-transform:uppercase}
+          .course-card-category{display:inline-flex;margin-bottom:14px;padding:7px 10px;border-radius:999px;background:color-mix(in srgb,var(--purple) 16%,transparent);color:var(--purple-2);font:800 10px 'Manrope';letter-spacing:.07em;text-transform:uppercase}
+          .course-artwork img{opacity:1}
+          .course-artwork .artwork-glow,.course-artwork .artwork-grid{display:none}
+          .course-artwork .artwork-copy{display:none}
+          @media(max-width:700px){.catalog-toolbar{padding:14px}.catalog-result-line{gap:15px;align-items:flex-start}.catalog-grid{grid-template-columns:1fr}.course-artwork{height:230px}}
+          '''
+              css.write_text(styles)
+          PY
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Commit verified catalog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.tsx src/styles.css
+          if git diff --cached --quiet; then
+            echo "No catalog changes required"
+            exit 0
+          fi
+          git commit -m "Ship premium covers and catalog filters [catalog-v2]"
+          git push
