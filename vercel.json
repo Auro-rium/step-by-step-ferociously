@@ -2,6 +2,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "routes": [
+    { "src": "/catalog/?", "dest": "/catalog.html" },
+    { "src": "/auth/?", "dest": "/auth.html" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
   ],
@@ -16,6 +18,7 @@
     {
       "source": "/(.*)",
       "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
