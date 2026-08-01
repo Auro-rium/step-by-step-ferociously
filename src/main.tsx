@@ -857,9 +857,23 @@ function Learn() {
     if (videoIds[lessonIndex + 1]) openLesson(lessonIndex + 1, true);
   };
 
-  const continueFromQuiz = (quiz: Quiz) => {
-    const nextLesson = Number(quiz.unlock_after_video || 0);
-    if (videoIds[nextLesson]) openLesson(nextLesson, true);
+  const continueFromServerStep = (nextStep: Record<string, unknown> | null | undefined) => {
+    if (!nextStep) return setError('The next course step could not be resolved.');
+    if (nextStep.type === 'lesson') {
+      const nextIndex = Number(nextStep.position) - 1;
+      if (!Number.isInteger(nextIndex) || nextIndex < 0 || !videoIds[nextIndex]) {
+        return setError('The next lesson is missing from the canonical course route.');
+      }
+      openLesson(nextIndex, true);
+      return;
+    }
+    if (nextStep.type === 'final_project') {
+      setActiveQuiz(null);
+      setQuizResult(null);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      return;
+    }
+    setError('The next course step is not available yet.');
   };
 
   const completeLesson = async () => {
@@ -874,10 +888,10 @@ function Learn() {
   };
 
   const submitQuiz = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); if (!activeQuiz) return; setBusy(true); const form = new FormData(event.currentTarget); const questions = [...(activeQuiz.course_quiz_questions ?? [])].sort((a, b) => a.position - b.position); const answers = questions.map((question) => ({ question_id: question.id, selected_index: Number(form.get(`q-${question.id}`)) })); const result = await supabase.rpc('submit_course_quiz', { p_quiz_id: activeQuiz.id, p_answers: answers }); setBusy(false); if (result.error) return setError(result.error.message); setQuizResult(result.data as Record<string, unknown>); setState((current) => current ? { ...current, attempts: [{ quiz_id: activeQuiz.id, passed: Boolean(result.data?.passed), score_percent: Number(result.data?.score_percent || 0) }, ...current.attempts], xp: Number(result.data?.awarded_xp || 0) ? [...current.xp, { amount: Number(result.data.awarded_xp) }] : current.xp } : current);
-    if (Boolean(result.data?.passed)) {
+    event.preventDefault(); if (!activeQuiz) return; setBusy(true); const form = new FormData(event.currentTarget); const questions = [...(activeQuiz.course_quiz_questions ?? [])].sort((a, b) => a.position - b.position); const answers = questions.map((question) => ({ question_id: question.id, selected_index: Number(form.get(`q-${question.id}`)) })); const result = await supabase.rpc('submit_course_quiz', { p_quiz_id: activeQuiz.id, p_answers: answers }); setBusy(false); if (result.error) return setError(result.error.message); const payload = result.data as Record<string, unknown>; setQuizResult(payload); setState((current) => current ? { ...current, attempts: [{ quiz_id: activeQuiz.id, passed: Boolean(payload.passed), score_percent: Number(payload.score_percent || 0) }, ...current.attempts], xp: Number(payload.awarded_xp || 0) ? [...current.xp, { amount: Number(payload.awarded_xp) }] : current.xp } : current);
+    if (Boolean(payload.passed)) {
       setError('');
-      window.setTimeout(() => continueFromQuiz(activeQuiz), 500);
+      window.setTimeout(() => continueFromServerStep(payload.next_step as Record<string, unknown> | undefined), 250);
     }
   };
 
@@ -894,7 +908,7 @@ function Learn() {
       const quiz = node.quiz; const unlocked = completed.size >= Number(quiz.unlock_after_video || 0); const done = passed.has(quiz.id); return <button key={`quiz-${quiz.id}`} className={`quiz-step ${activeQuiz?.id === quiz.id ? 'active' : ''} ${done ? 'done' : ''}`} disabled={!unlocked} onClick={() => { setActiveQuiz(quiz); setQuizResult(null); }}><i>{done ? <Check /> : unlocked ? '?' : <LockKeyhole />}</i><span><b>{quiz.title}</b><small>{unlocked ? `${quiz.pass_percent}% to pass · ${quiz.xp_reward} XP` : `Unlocks after ${quiz.unlock_after_video} lessons`}</small></span></button>;
     }) : <div className="mini-loader">Loading playlist…</div>}</nav></aside>
     <section className="lesson-workspace"><header className="lesson-header"><div><p className="eyebrow">PAID LEARNING SPACE</p><h1>{activeQuiz ? activeQuiz.title : state.steps[index]?.title || `Lesson ${index + 1}`}</h1><p>{activeQuiz ? activeQuiz.description || 'Pass this checkpoint to unlock the next lesson.' : completed.has(videoIds[index] || '') ? 'Completed. Continue to the next required step.' : 'Watch at least 80%, then complete the lesson to advance.'}</p></div><div className="xp-badge"><Trophy /><strong>{xp}</strong><span>XP</span></div></header>{error && <div className="form-message error">{error}</div>}
-      {!activeQuiz ? <><div className="player-shell"><div id="youtube-player" /></div><div className="lesson-controls panel"><div><p className="eyebrow">WATCH CHECKPOINT</p><h3>{completed.has(videoIds[index] || '') ? 'Lesson complete.' : `${watched}% watched`}</h3><ProgressBar value={watched} /></div><button className="button button-acid button-large" disabled={busy || (!completed.has(videoIds[index] || '') && watched < 80)} onClick={() => completed.has(videoIds[index] || '') ? continueFromLesson() : void completeLesson()}>{busy ? <><LoaderCircle className="spin" />Saving progress…</> : completed.has(videoIds[index] || '') ? <><ArrowRight />Continue to next step</> : <><CirclePlay />Complete and continue</>}</button></div></> : <section className="quiz-panel panel"><div className="quiz-title"><Trophy /><div><p className="eyebrow">KNOWLEDGE CHECK</p><h2>{activeQuiz.title}</h2><p>Score {activeQuiz.pass_percent}% or higher to pass and earn {activeQuiz.xp_reward} XP.</p></div></div><form onSubmit={submitQuiz}>{[...(activeQuiz.course_quiz_questions ?? [])].sort((a, b) => a.position - b.position).map((question, questionIndex) => <fieldset key={question.id}><legend><span>{questionIndex + 1}</span>{question.prompt}</legend>{question.options.map((option, optionIndex) => <label key={option}><input type="radio" name={`q-${question.id}`} value={optionIndex} required /><span>{option}</span></label>)}</fieldset>)}<button className="button button-primary button-large" disabled={busy}>Submit quiz</button></form>{quizResult && <div className={`quiz-result ${quizResult.passed ? 'pass' : 'fail'}`}><strong>{quizResult.passed ? 'Checkpoint passed' : 'Not passed yet'} · {String(quizResult.score_percent)}%</strong><p>{String(quizResult.correct_count)} of {String(quizResult.total_count)} correct. {Number(quizResult.awarded_xp || 0) > 0 ? `+${String(quizResult.awarded_xp)} XP` : ''}</p>{Boolean(quizResult.passed) && <button type="button" className="button button-acid" onClick={() => continueFromQuiz(activeQuiz)}>Continue to next lesson <ArrowRight /></button>}</div>}</section>}
+      {!activeQuiz ? <><div className="player-shell"><div key={videoIds[index]} id="youtube-player" /></div><div className="lesson-controls panel"><div><p className="eyebrow">WATCH CHECKPOINT</p><h3>{completed.has(videoIds[index] || '') ? 'Lesson complete.' : `${watched}% watched`}</h3><ProgressBar value={watched} /></div><button className="button button-acid button-large" disabled={busy || (!completed.has(videoIds[index] || '') && watched < 80)} onClick={() => completed.has(videoIds[index] || '') ? continueFromLesson() : void completeLesson()}>{busy ? <><LoaderCircle className="spin" />Saving progress…</> : completed.has(videoIds[index] || '') ? <><ArrowRight />Continue to next step</> : <><CirclePlay />Complete and continue</>}</button></div></> : <section className="quiz-panel panel"><div className="quiz-title"><Trophy /><div><p className="eyebrow">KNOWLEDGE CHECK</p><h2>{activeQuiz.title}</h2><p>Score {activeQuiz.pass_percent}% or higher to pass and earn {activeQuiz.xp_reward} XP.</p></div></div><form onSubmit={submitQuiz}>{[...(activeQuiz.course_quiz_questions ?? [])].sort((a, b) => a.position - b.position).map((question, questionIndex) => <fieldset key={question.id}><legend><span>{questionIndex + 1}</span>{question.prompt}</legend>{question.options.map((option, optionIndex) => <label key={option}><input type="radio" name={`q-${question.id}`} value={optionIndex} required /><span>{option}</span></label>)}</fieldset>)}<button className="button button-primary button-large" disabled={busy}>Submit quiz</button></form>{quizResult && <div className={`quiz-result ${quizResult.passed ? 'pass' : 'fail'}`}><strong>{quizResult.passed ? 'Checkpoint passed' : 'Not passed yet'} · {String(quizResult.score_percent)}%</strong><p>{String(quizResult.correct_count)} of {String(quizResult.total_count)} correct. {Number(quizResult.awarded_xp || 0) > 0 ? `+${String(quizResult.awarded_xp)} XP` : ''}</p>{Boolean(quizResult.passed) && <button type="button" className="button button-acid" onClick={() => continueFromServerStep(quizResult.next_step as Record<string, unknown> | undefined)}>Continue to next step <ArrowRight /></button>}</div>}</section>}
 
       {routeComplete && state.project && <section className="route-finale">
         <div className="route-finale-intro"><p className="eyebrow">COURSE ROUTE COMPLETE</p><h2>Build the final proof.</h2><p>You have finished every lesson and passed every checkpoint. The project is now the only remaining step.</p></div>
