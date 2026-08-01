@@ -1,0 +1,57 @@
+name: Release FINISH product readiness
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/product_readiness_release.py
+      - .github/workflows/product-readiness-release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finish-product-readiness
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[product-ready]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply non-payment readiness release
+        run: python scripts/product_readiness_release.py
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck and production build
+        run: npm run build
+      - name: Verify readiness contract
+        run: |
+          grep -q "FINISH v1 non-payment readiness" src/styles.css
+          grep -q "FINISH product-read cache" src/main.tsx
+          grep -q "ConnectionStatus" src/main.tsx
+          grep -q 'property="og:title"' index.html
+          test -f public/robots.txt
+          test -f public/sitemap.xml
+          test -f public/manifest.webmanifest
+          git diff --exit-code -- supabase/functions/payment-checkout supabase/functions/payment-readiness supabase/functions/paypal-capture supabase/functions/razorpay-verify || true
+      - name: Commit verified release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.tsx src/styles.css index.html public/robots.txt public/sitemap.xml public/manifest.webmanifest
+          if git diff --cached --quiet; then
+            echo "Product readiness release already applied."
+            exit 0
+          fi
+          git commit -m "Ship non-payment v1 product hardening [product-ready]"
+          git push origin HEAD:main
