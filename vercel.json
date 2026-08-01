@@ -4,7 +4,7 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/((?!assets/|favicon.ico|robots.txt).*)", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
