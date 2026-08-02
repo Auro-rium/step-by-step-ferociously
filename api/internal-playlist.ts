@@ -19,6 +19,16 @@ const ALLOWED = new Set([
 
 type Video = { id: string; title: string; duration: string | null };
 
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 6500) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function secondsToText(value: unknown) {
   const total = Number(value);
   if (!Number.isFinite(total) || total <= 0) return null;
@@ -120,6 +130,24 @@ function parseInitialData(html: string) {
   return null;
 }
 
+async function fetchPipedInstance(base: string, list: string): Promise<Video[]> {
+  const result = await fetchWithTimeout(
+    `${base}/playlists/${encodeURIComponent(list)}`,
+    { headers: { 'User-Agent': 'FINISHCourseIndexer/1.0' } },
+    4200,
+  );
+  if (!result.ok) throw new Error(`piped_${result.status}`);
+  const data = await result.json();
+  const rows = Array.isArray(data?.relatedStreams) ? data.relatedStreams : Array.isArray(data?.videos) ? data.videos : [];
+  const videos = rows.map((row: any) => ({
+    id: row?.videoId || videoIdFromUrl(row?.url),
+    title: String(row?.title || '').trim(),
+    duration: secondsToText(row?.duration),
+  })).filter((row: any) => row.id && row.title);
+  if (!videos.length) throw new Error('piped_empty');
+  return videos;
+}
+
 async function tryPiped(list: string): Promise<Video[]> {
   const instances = [
     'https://pipedapi.kavin.rocks',
@@ -127,23 +155,11 @@ async function tryPiped(list: string): Promise<Video[]> {
     'https://pipedapi.reallyaweso.me',
     'https://pipedapi.leptons.xyz',
   ];
-  for (const base of instances) {
-    try {
-      const result = await fetch(`${base}/playlists/${encodeURIComponent(list)}`, { headers: { 'User-Agent': 'FINISHCourseIndexer/1.0' } });
-      if (!result.ok) continue;
-      const data = await result.json();
-      const rows = Array.isArray(data?.relatedStreams) ? data.relatedStreams : Array.isArray(data?.videos) ? data.videos : [];
-      const videos = rows.map((row: any) => ({
-        id: row?.videoId || videoIdFromUrl(row?.url),
-        title: String(row?.title || '').trim(),
-        duration: secondsToText(row?.duration),
-      })).filter((row: any) => row.id && row.title);
-      if (videos.length) return videos;
-    } catch {
-      // Try the next public mirror.
-    }
+  try {
+    return await Promise.any(instances.map((base) => fetchPipedInstance(base, list)));
+  } catch {
+    return [];
   }
-  return [];
 }
 
 async function tryYouTubeBrowse(list: string): Promise<Video[]> {
@@ -151,7 +167,7 @@ async function tryYouTubeBrowse(list: string): Promise<Video[]> {
     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36',
     'Accept-Language': 'en-US,en;q=0.9',
   };
-  const page = await fetch(`https://www.youtube.com/playlist?list=${encodeURIComponent(list)}&hl=en&gl=US`, { headers });
+  const page = await fetchWithTimeout(`https://www.youtube.com/playlist?list=${encodeURIComponent(list)}&hl=en&gl=US`, { headers }, 7000);
   if (!page.ok) return [];
   const html = await page.text();
   const found = new Map<string, Video>();
@@ -162,25 +178,31 @@ async function tryYouTubeBrowse(list: string): Promise<Video[]> {
   const key = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1];
   if (!key) return [];
   const clientVersion = html.match(/"INNERTUBE_CLIENT_VERSION":"([^"]+)"/)?.[1] || '2.20260729.01.00';
-  const browse = await fetch(`https://www.youtube.com/youtubei/v1/browse?key=${encodeURIComponent(key)}&prettyPrint=false`, {
+  const browse = await fetchWithTimeout(`https://www.youtube.com/youtubei/v1/browse?key=${encodeURIComponent(key)}&prettyPrint=false`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json', Origin: 'https://www.youtube.com' },
     body: JSON.stringify({
       context: { client: { clientName: 'WEB', clientVersion, hl: 'en', gl: 'US' } },
       browseId: `VL${list}`,
     }),
-  });
+  }, 7000);
   if (!browse.ok) return [];
   collectVideos(await browse.json(), found);
   return [...found.values()];
 }
 
 export default async function handler(request: any, response: any) {
-  const list = String(request.query?.list || '').trim();
+  if (request.method !== 'GET') {
+    response.setHeader('Allow', 'GET');
+    return response.status(405).json({ error: 'method_not_allowed' });
+  }
+
+  const requestUrl = new URL(String(request.url || '/'), 'https://finish.local');
+  const list = String(requestUrl.searchParams.get('list') || '').trim();
   if (!ALLOWED.has(list)) return response.status(403).json({ error: 'playlist_not_allowed' });
 
   const piped = await tryPiped(list);
   const videos = piped.length ? piped : await tryYouTubeBrowse(list);
-  response.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'public, max-age=300, s-maxage=21600, stale-while-revalidate=86400');
   return response.status(200).json({ playlistId: list, count: videos.length, source: piped.length ? 'piped' : 'youtube', videos });
 }
