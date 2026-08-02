@@ -10,9 +10,13 @@ const newSystems = "if (/(operating-system|distributed|computation-structures|pe
 
 if (source.includes(oldAi)) source = source.replace(oldAi, newAi);
 if (source.includes(oldSystems)) source = source.replace(oldSystems, newSystems);
+source = source.replaceAll("theme: { color: '#7c5cff' }", "theme: { color: '#c47a45' }");
 
 if (!source.includes(newAi) || !source.includes(newSystems)) {
   throw new Error('Course category patch could not verify the expected classifier.');
+}
+if (source.includes("theme: { color: '#7c5cff' }")) {
+  throw new Error('Legacy purple Razorpay theme is still present.');
 }
 
 await writeFile(file, source);
