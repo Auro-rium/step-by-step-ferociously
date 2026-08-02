@@ -33,6 +33,34 @@ function videoIdFromUrl(value: unknown) {
   return text.match(/(?:watch\?v=|youtu\.be\/|\/watch\/)([A-Za-z0-9_-]{11})/)?.[1] || null;
 }
 
+function textValue(node: any): string {
+  if (!node) return '';
+  if (typeof node === 'string') return node.trim();
+  if (Array.isArray(node)) return node.map(textValue).filter(Boolean).join(' ').trim();
+  if (typeof node !== 'object') return '';
+  if (typeof node.simpleText === 'string') return node.simpleText.trim();
+  if (typeof node.content === 'string') return node.content.trim();
+  if (typeof node.text === 'string') return node.text.trim();
+  if (Array.isArray(node.runs)) return node.runs.map((run: any) => run?.text || '').join('').trim();
+  return '';
+}
+
+function candidateTitle(value: Record<string, any>) {
+  const candidates = [
+    value.title,
+    value.headline,
+    value.metadata?.lockupMetadataViewModel?.title,
+    value.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows?.[0]?.metadataParts?.[0]?.text,
+    value.accessibilityText,
+    value.accessibility?.accessibilityData?.label,
+  ];
+  for (const candidate of candidates) {
+    const text = textValue(candidate);
+    if (text && text.length > 2 && !/^\d+:\d+/.test(text)) return text.replace(/\s+/g, ' ').trim();
+  }
+  return '';
+}
+
 function collectVideos(node: unknown, found: Map<string, Video>) {
   if (!node || typeof node !== 'object') return;
   if (Array.isArray(node)) {
@@ -41,14 +69,55 @@ function collectVideos(node: unknown, found: Map<string, Video>) {
   }
   const value = node as Record<string, any>;
   const renderer = value.playlistVideoRenderer;
-  if (renderer?.videoId && renderer?.title?.runs?.[0]?.text) {
-    found.set(renderer.videoId, {
-      id: renderer.videoId,
-      title: renderer.title.runs.map((run: any) => run.text || '').join('').trim(),
-      duration: renderer.lengthText?.simpleText || null,
-    });
+  if (renderer?.videoId) {
+    const title = candidateTitle(renderer);
+    if (title) found.set(renderer.videoId, { id: renderer.videoId, title, duration: textValue(renderer.lengthText) || null });
   }
+
+  const lockup = value.lockupViewModel;
+  if (lockup && /^[A-Za-z0-9_-]{11}$/.test(String(lockup.contentId || ''))) {
+    const title = candidateTitle(lockup);
+    if (title) found.set(lockup.contentId, { id: lockup.contentId, title, duration: null });
+  }
+
+  const directId = value.videoId || value.navigationEndpoint?.watchEndpoint?.videoId || value.onTap?.innertubeCommand?.watchEndpoint?.videoId;
+  if (/^[A-Za-z0-9_-]{11}$/.test(String(directId || ''))) {
+    const title = candidateTitle(value);
+    if (title && !found.has(directId)) found.set(directId, { id: directId, title, duration: textValue(value.lengthText) || null });
+  }
+
   for (const child of Object.values(value)) collectVideos(child, found);
+}
+
+function parseInitialData(html: string) {
+  const markers = ['var ytInitialData = ', 'window["ytInitialData"] = ', 'ytInitialData = '];
+  for (const marker of markers) {
+    const index = html.indexOf(marker);
+    if (index < 0) continue;
+    const start = html.indexOf('{', index + marker.length);
+    if (start < 0) continue;
+    let depth = 0;
+    let quoted = false;
+    let escaped = false;
+    for (let i = start; i < html.length; i += 1) {
+      const char = html[i];
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (char === '\\') escaped = true;
+        else if (char === '"') quoted = false;
+        continue;
+      }
+      if (char === '"') quoted = true;
+      else if (char === '{') depth += 1;
+      else if (char === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          try { return JSON.parse(html.slice(start, i + 1)); } catch { break; }
+        }
+      }
+    }
+  }
+  return null;
 }
 
 async function tryPiped(list: string): Promise<Video[]> {
@@ -85,6 +154,11 @@ async function tryYouTubeBrowse(list: string): Promise<Video[]> {
   const page = await fetch(`https://www.youtube.com/playlist?list=${encodeURIComponent(list)}&hl=en&gl=US`, { headers });
   if (!page.ok) return [];
   const html = await page.text();
+  const found = new Map<string, Video>();
+  const initial = parseInitialData(html);
+  if (initial) collectVideos(initial, found);
+  if (found.size) return [...found.values()];
+
   const key = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1];
   if (!key) return [];
   const clientVersion = html.match(/"INNERTUBE_CLIENT_VERSION":"([^"]+)"/)?.[1] || '2.20260729.01.00';
@@ -97,9 +171,7 @@ async function tryYouTubeBrowse(list: string): Promise<Video[]> {
     }),
   });
   if (!browse.ok) return [];
-  const data = await browse.json();
-  const found = new Map<string, Video>();
-  collectVideos(data, found);
+  collectVideos(await browse.json(), found);
   return [...found.values()];
 }
 
