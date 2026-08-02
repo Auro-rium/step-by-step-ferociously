@@ -1,0 +1,223 @@
+/* FINISH auth palette v2
+   Carbon + bone + burnished copper. Lichen is reserved for trust/success. */
+
+.auth-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.auth-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 10% 18%, rgba(199, 122, 69, .11), transparent 28rem),
+    radial-gradient(circle at 91% 82%, rgba(143, 78, 45, .08), transparent 30rem),
+    #0b0b09;
+}
+
+.auth-story {
+  border: 1px solid rgba(226, 160, 110, .14) !important;
+  background:
+    linear-gradient(rgba(242, 236, 223, .025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(242, 236, 223, .025) 1px, transparent 1px),
+    radial-gradient(circle at 82% 86%, rgba(199, 122, 69, .21), transparent 35%),
+    #11100d !important;
+  background-size: 42px 42px, 42px 42px, auto, auto !important;
+  box-shadow: 0 38px 120px rgba(0, 0, 0, .52) !important;
+}
+
+.auth-story::after {
+  width: 430px !important;
+  height: 430px !important;
+  right: -145px !important;
+  bottom: -180px !important;
+  background: #8f4e2d !important;
+  opacity: .32 !important;
+  filter: blur(34px) !important;
+}
+
+.auth-brand,
+.auth-brand span,
+.auth-story .eyebrow {
+  color: #e2a06e !important;
+}
+
+.auth-story h1 {
+  color: #f2ecdf !important;
+}
+
+.auth-story > div > p {
+  color: #aaa193 !important;
+}
+
+.auth-benefits span {
+  color: #d8d1c5 !important;
+}
+
+.auth-benefits svg,
+.auth-quote svg {
+  color: #c9d86f !important;
+}
+
+.auth-quote {
+  border-color: rgba(226, 160, 110, .17) !important;
+  background: rgba(242, 236, 223, .045) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025) !important;
+}
+
+.auth-card.panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(242, 236, 223, .12) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .028), rgba(255, 255, 255, .008)),
+    #161510 !important;
+  box-shadow: 0 34px 110px rgba(0, 0, 0, .42) !important;
+}
+
+.auth-card.panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 48px;
+  right: 48px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(226, 160, 110, .66), transparent);
+}
+
+.auth-icon {
+  border: 1px solid rgba(226, 160, 110, .2) !important;
+  background: rgba(199, 122, 69, .12) !important;
+  color: #e2a06e !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035) !important;
+}
+
+.auth-card .eyebrow {
+  color: #e2a06e !important;
+}
+
+.auth-card h2 {
+  color: #f2ecdf !important;
+}
+
+.auth-card-head > p:last-child {
+  color: #a69e90 !important;
+}
+
+.auth-card .form label {
+  color: #d8d1c5 !important;
+}
+
+.auth-card .form input {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid rgba(242, 236, 223, .13) !important;
+  background: #100f0c !important;
+  color: #f2ecdf !important;
+  caret-color: #e2a06e !important;
+  color-scheme: dark;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .018) !important;
+}
+
+.auth-card .form input::placeholder {
+  color: #746e64 !important;
+}
+
+.auth-card .form input:hover {
+  border-color: rgba(226, 160, 110, .28) !important;
+}
+
+.auth-card .form input:focus,
+.auth-card .form input:focus-visible {
+  outline: none !important;
+  border-color: #c77a45 !important;
+  box-shadow: 0 0 0 4px rgba(199, 122, 69, .12) !important;
+}
+
+.auth-card input:-webkit-autofill,
+.auth-card input:-webkit-autofill:hover,
+.auth-card input:-webkit-autofill:focus,
+.auth-card input:-webkit-autofill:active {
+  -webkit-text-fill-color: #f2ecdf !important;
+  caret-color: #e2a06e !important;
+  -webkit-box-shadow: 0 0 0 1000px #100f0c inset !important;
+  box-shadow: 0 0 0 1000px #100f0c inset !important;
+  border-color: rgba(199, 122, 69, .42) !important;
+  transition: background-color 9999s ease-out 0s;
+}
+
+.auth-card .button-primary {
+  min-height: 54px !important;
+  border-color: #c77a45 !important;
+  background: #c77a45 !important;
+  color: #100d09 !important;
+  box-shadow: 0 15px 42px rgba(199, 122, 69, .2) !important;
+}
+
+.auth-card .button-primary:hover:not(:disabled) {
+  border-color: #e2a06e !important;
+  background: #e2a06e !important;
+  box-shadow: 0 18px 50px rgba(199, 122, 69, .27) !important;
+}
+
+.auth-card .button-primary:focus-visible {
+  outline: 2px solid #e2a06e !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 5px rgba(199, 122, 69, .14) !important;
+}
+
+.auth-switch {
+  color: #e2a06e !important;
+  text-decoration-color: rgba(226, 160, 110, .35) !important;
+}
+
+.auth-switch:hover {
+  color: #f2bd91 !important;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+.auth-switch:focus-visible {
+  outline: 1px solid #c77a45 !important;
+  outline-offset: 5px !important;
+  box-shadow: none !important;
+}
+
+.auth-card .form-message.error {
+  border: 1px solid rgba(213, 117, 92, .28) !important;
+  background: rgba(117, 45, 33, .24) !important;
+  color: #f1b8aa !important;
+}
+
+.auth-card .form-message.success {
+  border: 1px solid rgba(201, 216, 111, .25) !important;
+  background: rgba(82, 95, 41, .24) !important;
+  color: #dfeaa0 !important;
+}
+
+.auth-card input,
+.auth-card button {
+  accent-color: #c77a45 !important;
+}
+
+@media (max-width: 1000px) {
+  .auth-shell::before {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(199, 122, 69, .1), transparent 25rem),
+      #0b0b09;
+  }
+}
+
+@media (max-width: 760px) {
+  .auth-story {
+    min-height: 500px !important;
+  }
+
+  .auth-card.panel::before {
+    left: 24px;
+    right: 24px;
+  }
+}
