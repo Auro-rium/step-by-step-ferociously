@@ -3,6 +3,12 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "routes": [
+    { "src": "/why", "dest": "/why.html" },
+    {
+      "src": "/why.html",
+      "status": 308,
+      "headers": { "Location": "/why" }
+    },
     { "handle": "filesystem" },
     {
       "src": "/.*",
