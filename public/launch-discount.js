@@ -1,5 +1,7 @@
 (() => {
   const PUBLIC_PATHS = ['/', '/catalog', '/course/', '/checkout/'];
+  let observer = null;
+  let scheduled = false;
 
   function promotionVisible() {
     const path = window.location.pathname;
@@ -54,35 +56,38 @@
   }
 
   function decorateAll() {
+    scheduled = false;
     ensureBanner();
-    document.querySelectorAll('.card-bottom > strong, .course-price strong, .payment-card > strong').forEach(decoratePrice);
+    if (!promotionVisible()) return;
+    document.querySelectorAll('.card-bottom > strong:not(.launch-price), .course-price strong:not(.launch-price), .payment-card > strong:not(.launch-price)').forEach(decoratePrice);
   }
 
-  let scheduled = false;
   function schedule() {
     if (scheduled) return;
     scheduled = true;
-    requestAnimationFrame(() => {
-      scheduled = false;
-      decorateAll();
-    });
+    requestAnimationFrame(decorateAll);
   }
 
-  const nativePush = history.pushState;
-  const nativeReplace = history.replaceState;
-  history.pushState = function (...args) {
-    nativePush.apply(this, args);
-    window.dispatchEvent(new Event('finish-route-change'));
-  };
-  history.replaceState = function (...args) {
-    nativeReplace.apply(this, args);
-    window.dispatchEvent(new Event('finish-route-change'));
-  };
+  function stopWatching() {
+    observer?.disconnect();
+    observer = null;
+  }
 
-  window.addEventListener('popstate', schedule);
-  window.addEventListener('finish-route-change', schedule);
-  new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+  function activate() {
+    stopWatching();
+    ensureBanner();
+    if (!promotionVisible()) return;
+    schedule();
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule, { once: true });
-  else schedule();
+    const root = document.getElementById('root');
+    if (!root) return;
+    observer = new MutationObserver((mutations) => {
+      if (mutations.some((mutation) => mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0)) schedule();
+    });
+    observer.observe(root, { childList: true, subtree: true });
+  }
+
+  window.addEventListener('finish-route-change', activate);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', activate, { once: true });
+  else activate();
 })();
