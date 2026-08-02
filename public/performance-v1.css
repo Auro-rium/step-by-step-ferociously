@@ -1,0 +1,47 @@
+/* FINISH rendering hardening. Visual design stays intact; offscreen work does not. */
+.catalog-grid .course-card,
+.owned-grid .owned-card,
+.method-grid article,
+.company-proof-grid article,
+.current-catalog article,
+.orders-panel article {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
+}
+
+.catalog-grid,
+.owned-grid,
+.lesson-list {
+  contain: layout style;
+}
+
+.course-artwork img {
+  backface-visibility: hidden;
+}
+
+@media (max-width: 820px) {
+  .site-header {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .hero-stage::before,
+  .value-card::before,
+  .artwork-glow {
+    filter: none !important;
+  }
+
+  .course-card:hover,
+  .button:hover:not(:disabled) {
+    transform: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
