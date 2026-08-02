@@ -102,3 +102,5 @@ function CourseCard'''
           git add src/main.tsx src/styles.css
           git commit -m "Use real lecture thumbnails for every course [real-thumbnails-v2]"
           git push origin HEAD:main
+
+# trigger: 2026-08-02
