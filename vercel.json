@@ -4,11 +4,30 @@
   "outputDirectory": "dist",
   "routes": [
     { "src": "/why", "dest": "/why.html" },
-    {
-      "src": "/why.html",
-      "status": 308,
-      "headers": { "Location": "/why" }
-    },
+    { "src": "/why.html", "status": 308, "headers": { "Location": "/why" } },
+
+    { "src": "/privacy", "dest": "/privacy.html" },
+    { "src": "/privacy.html", "status": 308, "headers": { "Location": "/privacy" } },
+
+    { "src": "/terms", "dest": "/terms.html" },
+    { "src": "/terms.html", "status": 308, "headers": { "Location": "/terms" } },
+
+    { "src": "/refunds", "dest": "/refund-policy.html" },
+    { "src": "/refund-policy", "status": 308, "headers": { "Location": "/refunds" } },
+    { "src": "/refund-policy.html", "status": 308, "headers": { "Location": "/refunds" } },
+
+    { "src": "/payments", "dest": "/payments.html" },
+    { "src": "/payments.html", "status": 308, "headers": { "Location": "/payments" } },
+
+    { "src": "/cookies", "dest": "/cookies.html" },
+    { "src": "/cookies.html", "status": 308, "headers": { "Location": "/cookies" } },
+
+    { "src": "/acceptable-use", "dest": "/acceptable-use.html" },
+    { "src": "/acceptable-use.html", "status": 308, "headers": { "Location": "/acceptable-use" } },
+
+    { "src": "/content-copyright", "dest": "/content-copyright.html" },
+    { "src": "/content-copyright.html", "status": 308, "headers": { "Location": "/content-copyright" } },
+
     { "handle": "filesystem" },
     {
       "src": "/.*",
