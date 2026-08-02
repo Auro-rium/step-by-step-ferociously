@@ -52,7 +52,22 @@ requireText('src/routes/catalog.ts', [
 ]);
 forbidText('src/routes/catalog.ts', ['Finance & Markets', "price.currency === 'INR'", "currency === 'INR'"]);
 
-requireText('public/launch-discount.js', ['$1 USD worldwide · one-time', "$2 USD"]);
+requireText('src/course-product.tsx', [
+  'Project submitted for review.',
+  'PROJECT OR REPOSITORY URL',
+  'PROJECT REFLECTION',
+  'Project submission',
+  'Open project',
+]);
+forbidText('src/course-product.tsx', [
+  'ENGINEERING REFLECTION',
+  '>REPOSITORY URL<',
+  'Open repository',
+  'another payment row',
+]);
+
+requireText('public/terms.html', ['Project, repository, document, and live-build links']);
+requireText('public/launch-discount.js', ['$1 USD worldwide · one-time', '$2 USD']);
 forbidText('public/launch-discount.js', ['₹79', '₹159', 'INR', 'India ·']);
 
 requireText('public/company-shell.js', [
@@ -86,4 +101,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('FINISH launch verification passed: PayPal-only, global USD, policies present, split routes coherent.');
+console.log('FINISH launch verification passed: PayPal-only, global USD, policies present, split routes coherent, project submissions work across disciplines.');
