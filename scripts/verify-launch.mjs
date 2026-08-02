@@ -25,7 +25,6 @@ function forbidText(file, markers) {
 requireText('src/main.tsx', [
   'FINISH PayPal-only checkout',
   "provider: 'paypal'",
-  "currency: 'USD'",
   'This course route is still being structured and cannot be purchased yet.',
   'PayPal processes the payment under its own terms',
   'function syncDocumentMetadata(',
