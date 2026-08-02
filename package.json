@@ -4,9 +4,9 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "typecheck": "tsc --noEmit --pretty false",
+    "dev": "node scripts/patch-course-categories.mjs && vite",
+    "build": "node scripts/patch-course-categories.mjs && tsc --noEmit && vite build",
+    "typecheck": "node scripts/patch-course-categories.mjs && tsc --noEmit --pretty false",
     "preview": "vite preview"
   },
   "dependencies": {
