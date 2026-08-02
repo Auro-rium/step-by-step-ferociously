@@ -33,6 +33,7 @@ requireText('src/main.tsx', [
   "title: 'Course Catalog | FINISH'",
   "title: 'Sign in | FINISH'",
   'title: `${course.title} | FINISH`',
+  '<span>{percent}% of lessons</span>',
 ]);
 forbidText('src/main.tsx', [
   'IndianRupee',
@@ -40,9 +41,12 @@ forbidText('src/main.tsx', [
   'defaultValue="159"',
   "p_inr: Number(form.get('inr'))",
   "theme: { color: '#7c5cff' }",
+  '<span>{percent}% complete</span>',
 ]);
 
 requireText('src/pages/Learn.tsx', ["robots.content = 'noindex,nofollow'", 'Learning | FINISH']);
+requireText('src/routes/landing.ts', ['<span>route progress</span>']);
+forbidText('src/routes/landing.ts', ['<span>course complete</span>']);
 
 requireText('src/pages/Admin.tsx', [
   'GLOBAL PAYPAL PRICE (USD)',
@@ -108,4 +112,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('FINISH launch verification passed: PayPal-only, global USD, policies, indexing, split routes, and cross-discipline project submissions are coherent.');
+console.log('FINISH launch verification passed: PayPal-only, global USD, policies, indexing, progress language, split routes, and cross-discipline projects are coherent.');
