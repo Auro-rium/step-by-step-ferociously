@@ -18,6 +18,7 @@ if (!source.includes('Search, X,')) {
 
 const categoryBlock = `const CATALOG_CATEGORY_ORDER = [
   'All courses',
+  'Finance & Investing',
   'AI & Machine Learning',
   'Programming & Web',
   'Systems & Architecture',
@@ -28,6 +29,7 @@ const categoryBlock = `const CATALOG_CATEGORY_ORDER = [
 ] as const;
 
 const CATALOG_SEARCH_ALIASES: Record<string, string> = {
+  'Finance & Investing': 'finance financial markets investing investment corporate finance valuation accounting portfolio asset pricing stocks bonds options derivatives capital budgeting fintech blockchain money banking public finance',
   'AI & Machine Learning': 'ai ml llm machine learning deep learning neural networks transformers nlp computer vision reinforcement learning generative models data science',
   'Programming & Web': 'programming coding software development python javascript web django html css git developer tools computer science foundations',
   'Systems & Architecture': 'operating systems distributed systems architecture hardware cpu memory networks performance graphics nand2tetris systems engineering',
@@ -48,6 +50,7 @@ function normalizeCatalogText(value: string) {
 
 function courseCategory(course: Challenge) {
   const value = normalizeCatalogText(\`${'${course.slug} ${course.title} ${course.source_title || \'\'}'}\`);
+  if (/(finance|financial|accounting|valuation|investing|investment|portfolio|asset pricing|capital market|corporate life cycle|fintech|blockchain and money|banking|public finance)/.test(value)) return 'Finance & Investing';
   if (/(artificial intelligence|machine learning|deep learning|computer vision|reinforcement learning|natural language|language model|large language|neural network|transformer|generative|meta learning|tensorflow|fast ai|karpathy)/.test(value)) return 'AI & Machine Learning';
   if (/(cybersecurity|computer systems security|cryptography|cryptanalysis)/.test(value)) return 'Cybersecurity';
   if (/(database|dbms)/.test(value)) return 'Databases';
@@ -77,6 +80,14 @@ if (!source.includes('const CATALOG_CATEGORY_ORDER')) {
     /function courseCategory\(course: Challenge\) \{[\s\S]*?\n\}\n\nfunction courseCoverData/,
     `${categoryBlock}\n\nfunction courseCoverData`,
     'the course category classifier',
+  );
+}
+
+if (!source.includes("'Finance & Investing': ['#071a17'")) {
+  replaceRequired(
+    /const palettes: Record<string, \[string, string, string\]> = \{\n/,
+    "const palettes: Record<string, [string, string, string]> = {\n    'Finance & Investing': ['#071a17', '#18a875', '#f3c969'],\n",
+    'the course artwork palette',
   );
 }
 
@@ -112,7 +123,7 @@ const toolbarBlock = `<section className="catalog-toolbar" aria-label="Course fi
         </div>
         <div className="catalog-search-shell">
           <Search size={21} aria-hidden="true" />
-          <input className="catalog-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try Python, distributed systems, LLM, Harvard…" aria-label="Search the full course catalog" autoComplete="off" />
+          <input className="catalog-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try valuation, Python, distributed systems, MIT…" aria-label="Search the full course catalog" autoComplete="off" />
           {query ? <button className="catalog-search-clear" type="button" onClick={() => setQuery('')} aria-label="Clear course search"><X size={17} /></button> : <span className="catalog-search-scope">TITLE · TOPIC · SOURCE</span>}
         </div>
         <div className="catalog-category-heading"><span>Browse by field</span><small>Categories update with the published catalog</small></div>
@@ -133,6 +144,7 @@ source = source.replaceAll("theme: { color: '#7c5cff' }", "theme: { color: '#c47
 
 const requiredMarkers = [
   'const CATALOG_CATEGORY_ORDER',
+  "'Finance & Investing'",
   "useState('All courses')",
   'const categoryCounts = useMemo',
   'catalog-toolbar-heading',
