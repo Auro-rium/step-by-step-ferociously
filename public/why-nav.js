@@ -1,15 +1,22 @@
 (() => {
   const WHY_PATH = '/why';
+  let observer = null;
+  let timeout = 0;
 
-  const addWhyLinks = () => {
-    document.querySelectorAll('nav, .desktop-nav, .company-footer, footer').forEach((container) => {
-      if (container.querySelector('a[data-finish-why-link="true"], a[href="/why"], a[href="/why.html"]')) return;
+  function isPublicRoute() {
+    const path = window.location.pathname;
+    return path === '/' || path === '/catalog' || path.startsWith('/course/');
+  }
 
+  function addWhyLinks() {
+    let changed = false;
+    document.querySelectorAll('.desktop-nav, footer, .company-footer').forEach((container) => {
+      if (container.querySelector('a[data-finish-why-link="true"], a[href="/why"]')) return;
       const anchors = [...container.querySelectorAll('a')];
-      const method = anchors.find(
-        (link) =>
-          /how it works|method/i.test((link.textContent || '').trim()) ||
-          link.getAttribute('href') === '#method'
+      const method = anchors.find((link) =>
+        /how it works|method/i.test((link.textContent || '').trim()) ||
+        link.getAttribute('href') === '#method' ||
+        link.getAttribute('href') === '/#method'
       );
 
       if (method) {
@@ -18,24 +25,33 @@
         why.textContent = 'Why FINISH';
         why.dataset.finishWhyLink = 'true';
         method.insertAdjacentElement('afterend', why);
-        return;
-      }
-
-      if (container.matches('footer, .company-footer')) {
-        const legal = anchors.find((link) => /terms|privacy/i.test((link.textContent || '').trim()));
-        if (legal) {
-          const why = document.createElement('a');
-          why.href = WHY_PATH;
-          why.textContent = 'Why FINISH';
-          why.dataset.finishWhyLink = 'true';
-          legal.insertAdjacentElement('beforebegin', why);
-        }
+        changed = true;
       }
     });
-  };
+    return changed || Boolean(document.querySelector('.desktop-nav a[href="/why"]'));
+  }
 
-  addWhyLinks();
-  const observer = new MutationObserver(addWhyLinks);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  window.addEventListener('load', addWhyLinks, { once: true });
+  function stop() {
+    observer?.disconnect();
+    observer = null;
+    if (timeout) window.clearTimeout(timeout);
+    timeout = 0;
+  }
+
+  function activate() {
+    stop();
+    if (!isPublicRoute()) return;
+    if (addWhyLinks()) return;
+    const root = document.getElementById('root');
+    if (!root) return;
+    observer = new MutationObserver(() => {
+      if (addWhyLinks()) stop();
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    timeout = window.setTimeout(stop, 5000);
+  }
+
+  window.addEventListener('finish-route-change', activate);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', activate, { once: true });
+  else activate();
 })();
