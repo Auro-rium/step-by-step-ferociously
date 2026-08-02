@@ -53,9 +53,27 @@
   <url><loc>https://finish-landing-nine.vercel.app/course/mit-6875-cryptography</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://finish-landing-nine.vercel.app/course/mit-6s081-operating-system-engineering</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://finish-landing-nine.vercel.app/course/mit-6s191-introduction-to-deep-learning</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/mit-blockchain-and-money</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/mit-finance-theory-i</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/mit-fintech-shaping-financial-world</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/mit-mathematics-applications-finance</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://finish-landing-nine.vercel.app/course/mit-missing-semester</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/mit-public-finance-public-policy</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://finish-landing-nine.vercel.app/course/nand2tetris-part-one</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/nyu-accounting-for-finance-valuation</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/nyu-corporate-finance-online</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/nyu-corporate-life-cycle</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://finish-landing-nine.vercel.app/course/nyu-deep-learning</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/nyu-foundations-of-finance</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/nyu-investment-philosophies</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/nyu-little-book-of-valuation</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/nyu-mba-corporate-finance-2025</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/nyu-mba-valuation-2024</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/nyu-mba-valuation-2025</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/nyu-statistics-for-finance-investing</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/nyu-undergraduate-corporate-finance</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/nyu-undergraduate-valuation-2024</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/nyu-valuation-online</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://finish-landing-nine.vercel.app/course/stanford-cme295-large-language-models</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://finish-landing-nine.vercel.app/course/stanford-cs105-introduction-to-computers</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://finish-landing-nine.vercel.app/course/stanford-cs109-probability-for-computer-scientists</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
@@ -73,4 +91,6 @@
   <url><loc>https://finish-landing-nine.vercel.app/course/stanford-cs336-language-modeling-from-scratch</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://finish-landing-nine.vercel.app/course/tensorflow-nlp-zero-to-hero</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://finish-landing-nine.vercel.app/course/ucl-david-silver-reinforcement-learning</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/yale-financial-markets</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://finish-landing-nine.vercel.app/course/yale-financial-theory</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
 </urlset>
