@@ -28,6 +28,11 @@ requireText('src/main.tsx', [
   "currency: 'USD'",
   'This course route is still being structured and cannot be purchased yet.',
   'PayPal processes the payment under its own terms',
+  'function syncDocumentMetadata(',
+  "robots.content = options.noIndex ? 'noindex,nofollow'",
+  "title: 'Course Catalog | FINISH'",
+  "title: 'Sign in | FINISH'",
+  'title: `${course.title} | FINISH`',
 ]);
 forbidText('src/main.tsx', [
   'IndianRupee',
@@ -36,6 +41,8 @@ forbidText('src/main.tsx', [
   "p_inr: Number(form.get('inr'))",
   "theme: { color: '#7c5cff' }",
 ]);
+
+requireText('src/pages/Learn.tsx', ["robots.content = 'noindex,nofollow'", 'Learning | FINISH']);
 
 requireText('src/pages/Admin.tsx', [
   'GLOBAL PAYPAL PRICE (USD)',
@@ -101,4 +108,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('FINISH launch verification passed: PayPal-only, global USD, policies present, split routes coherent, project submissions work across disciplines.');
+console.log('FINISH launch verification passed: PayPal-only, global USD, policies, indexing, split routes, and cross-discipline project submissions are coherent.');
