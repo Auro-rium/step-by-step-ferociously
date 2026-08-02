@@ -3,11 +3,16 @@
   const supabaseUrl = 'https://ijkdhrznxukawugeoocs.supabase.co';
   const supabaseKey = 'sb_publishable_kwSezylj6T63a7nIMtuxcg_0bQWm6-8';
   const fallbackStats = { courses: 64, lessons: 1753, quizzes: 128, questions: 2560, projects: 64 };
+  const CACHE_KEY = 'finish:catalog-stats:v2';
+  const CACHE_TTL = 10 * 60 * 1000;
   let catalogStats = fallbackStats;
   let statsRequest = null;
+  let observer = null;
+  let observerTimeout = 0;
 
   const number = (value) => new Intl.NumberFormat('en-US').format(Number(value || 0));
   const statsSignature = (stats) => [stats.courses, stats.lessons, stats.quizzes, stats.questions, stats.projects].join(':');
+  const idle = (callback) => typeof window.finishIdle === 'function' ? window.finishIdle(callback) : window.setTimeout(callback, 80);
 
   function companyProofMarkup(stats) {
     return `
@@ -54,14 +59,14 @@
           <nav class="company-footer-column" aria-label="Support links">
             <span class="company-footer-label">SUPPORT</span>
             <a href="mailto:${supportEmail}?subject=FINISH%20support">Email support</a>
-            <a href="/refund-policy.html">Purchase policy</a>
-            <a href="/privacy.html#contact">Privacy contact</a>
+            <a href="/refunds">Purchase policy</a>
+            <a href="/privacy#contact">Privacy contact</a>
           </nav>
           <nav class="company-footer-column" aria-label="Legal links">
             <span class="company-footer-label">LEGAL</span>
-            <a href="/terms.html">Terms of use</a>
-            <a href="/privacy.html">Privacy policy</a>
-            <a href="/refund-policy.html">Refund & cancellation</a>
+            <a href="/terms">Terms of use</a>
+            <a href="/privacy">Privacy policy</a>
+            <a href="/refunds">Refund & cancellation</a>
           </nav>
         </div>
         <div class="company-footer-bottom">
@@ -78,14 +83,19 @@
     proof.dataset.catalogStats = signature;
   }
 
+  function readCachedStats() {
+    try {
+      const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
+      if (!cached || Date.now() - Number(cached.savedAt || 0) > CACHE_TTL) return;
+      catalogStats = { ...fallbackStats, ...cached.stats };
+    } catch { /* Storage is optional. */ }
+  }
+
   function loadCatalogStats() {
     if (statsRequest) return statsRequest;
     statsRequest = fetch(`${supabaseUrl}/rest/v1/rpc/get_public_catalog_stats`, {
       method: 'POST',
-      headers: {
-        apikey: supabaseKey,
-        'Content-Type': 'application/json',
-      },
+      headers: { apikey: supabaseKey, 'Content-Type': 'application/json' },
       body: '{}',
     })
       .then(async (response) => {
@@ -101,19 +111,36 @@
           questions: Number(stats.questions || fallbackStats.questions),
           projects: Number(stats.projects || fallbackStats.projects),
         };
+        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), stats: catalogStats })); }
+        catch { /* Storage is optional. */ }
         document.querySelectorAll('.company-proof').forEach(renderProof);
         return catalogStats;
       })
-      .catch(() => fallbackStats);
+      .catch(() => fallbackStats)
+      .finally(() => { statsRequest = null; });
     return statsRequest;
   }
 
-  function upgradeCompanyShell() {
+  function stopWatching() {
+    observer?.disconnect();
+    observer = null;
+    if (observerTimeout) window.clearTimeout(observerTimeout);
+    observerTimeout = 0;
+  }
+
+  function upgrade() {
     const footer = document.querySelector('footer.footer');
     const onLanding = window.location.pathname === '/';
     let proof = document.querySelector('.company-proof');
 
-    if (onLanding && footer) {
+    if (!footer) return false;
+    if (footer.dataset.companyFooter !== 'true') {
+      footer.dataset.companyFooter = 'true';
+      footer.classList.add('company-footer');
+      footer.innerHTML = footerMarkup();
+    }
+
+    if (onLanding) {
       if (!proof) {
         proof = document.createElement('section');
         proof.className = 'company-proof';
@@ -121,25 +148,28 @@
         footer.before(proof);
       }
       renderProof(proof);
-      void loadCatalogStats();
-    } else if (!onLanding && proof) {
+      idle(() => void loadCatalogStats());
+    } else if (proof) {
       proof.remove();
     }
 
-    if (footer && footer.dataset.companyFooter !== 'true') {
-      footer.dataset.companyFooter = 'true';
-      footer.classList.add('company-footer');
-      footer.innerHTML = footerMarkup();
-    }
+    return true;
   }
 
-  const observer = new MutationObserver(upgradeCompanyShell);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  document.addEventListener('DOMContentLoaded', upgradeCompanyShell);
-  window.addEventListener('popstate', () => window.setTimeout(upgradeCompanyShell, 0));
-  document.addEventListener('click', (event) => {
-    const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
-    if (anchor && anchor.getAttribute('href')?.startsWith('/')) window.setTimeout(upgradeCompanyShell, 80);
-  });
-  upgradeCompanyShell();
+  function activate() {
+    stopWatching();
+    if (upgrade()) return;
+    const root = document.getElementById('root');
+    if (!root) return;
+    observer = new MutationObserver(() => {
+      if (upgrade()) stopWatching();
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    observerTimeout = window.setTimeout(stopWatching, 5000);
+  }
+
+  readCachedStats();
+  window.addEventListener('finish-route-change', activate);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', activate, { once: true });
+  else activate();
 })();
