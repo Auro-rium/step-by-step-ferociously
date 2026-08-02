@@ -1,8 +1,8 @@
 # FINISH payment setup
 
-FINISH uses **Razorpay for India** and **PayPal for international checkout**. Stripe is not part of the active payment path.
+FINISH uses **PayPal only** for every customer. Checkout is globally priced in USD and is never selected or priced using IP address, country headers, browser location, device location or geolocation.
 
-Do not place private credentials in Vercel environment variables or frontend source. Payment credentials belong in **Supabase Edge Function secrets** because checkout creation and payment capture run server-side.
+Do not place private credentials in Vercel environment variables or frontend source. Payment credentials belong in **Supabase Edge Function Secrets** because checkout creation, capture and webhook reconciliation run server-side.
 
 ## 1. PayPal credentials
 
@@ -18,7 +18,7 @@ PAYPAL_WEBHOOK_ID=your_paypal_webhook_id
 SITE_URL=https://finish-landing-nine.vercel.app
 ```
 
-Use `PAYPAL_ENV=sandbox` while testing. Change it to `live` only after a successful sandbox purchase, capture, enrollment unlock, cancellation test, and duplicate-callback test.
+Use `PAYPAL_ENV=sandbox` while testing. Change it to `live` only after a successful sandbox purchase, capture, enrollment unlock, cancellation test, refund test and duplicate-callback test.
 
 The PayPal webhook URL is:
 
@@ -31,30 +31,15 @@ Subscribe the PayPal application to at least:
 ```text
 CHECKOUT.ORDER.APPROVED
 PAYMENT.CAPTURE.COMPLETED
+PAYMENT.CAPTURE.PENDING
 PAYMENT.CAPTURE.DENIED
 PAYMENT.CAPTURE.REFUNDED
+PAYMENT.CAPTURE.REVERSED
 ```
 
 Copy the resulting webhook ID into `PAYPAL_WEBHOOK_ID`.
 
-## 2. Razorpay credentials
-
-Add these Supabase Edge Function secrets:
-
-```text
-RAZORPAY_KEY_ID=your_key_id
-RAZORPAY_KEY_SECRET=your_key_secret
-RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
-SITE_URL=https://finish-landing-nine.vercel.app
-```
-
-The Razorpay webhook URL is the same payment webhook endpoint:
-
-```text
-https://ijkdhrznxukawugeoocs.supabase.co/functions/v1/payment-webhook
-```
-
-## 3. Frontend variables
+## 2. Frontend variables
 
 The Vercel project needs only public Supabase values:
 
@@ -63,20 +48,21 @@ VITE_SUPABASE_URL=https://ijkdhrznxukawugeoocs.supabase.co
 VITE_SUPABASE_ANON_KEY=your_publishable_supabase_key
 ```
 
-Never add `PAYPAL_CLIENT_SECRET`, `RAZORPAY_KEY_SECRET`, Supabase secret/service-role keys, or webhook secrets to Vercel browser variables.
+Never add `PAYPAL_CLIENT_SECRET`, Supabase secret/service-role keys or webhook secrets to Vercel browser variables.
 
-## 4. Required verification
+## 3. Required verification
 
 Before accepting money, test all of these:
 
-1. International user receives PayPal USD pricing.
-2. Indian user receives Razorpay INR pricing.
+1. Every user sees the same PayPal USD checkout.
+2. No network request or application branch reads IP-country headers for payment routing or pricing.
 3. Cancelling checkout does not grant enrollment.
 4. A completed payment creates or updates `payment_orders` to `paid`.
 5. A completed payment grants `enrollments.access_status = 'paid'`.
-6. Replaying a callback or webhook does not grant duplicate XP, orders, or enrollment rows.
-7. A failed, denied, pending, or refunded payment never unlocks course access.
+6. Replaying a callback or webhook does not create duplicate orders or enrollment rows.
+7. A failed, denied, pending, reversed or refunded payment never leaves paid course access active.
+8. The captured PayPal amount and currency match the stored order before access is granted.
 
-## 5. Secret management
+## 4. Secret management
 
-Credentials can be pasted together in Supabase Edge Function Secrets. Supabase makes updated secrets available to functions without committing them to GitHub. Keep sandbox and live credentials separate, rotate any credential that has ever appeared in a chat, screenshot, commit, build log, or frontend bundle.
+Supabase makes updated secrets available to Edge Functions without committing them to GitHub. Keep sandbox and live credentials separate, and rotate any credential that has appeared in a chat, screenshot, commit, build log or frontend bundle.
