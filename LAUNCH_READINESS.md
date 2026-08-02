@@ -2,6 +2,8 @@
 
 Status: product freeze for payment activation.
 
+Deployment retry requested: 2026-08-02 23:11 IST.
+
 ## Verified product state
 
 - 84 published and route-ready courses
