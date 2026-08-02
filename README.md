@@ -9,16 +9,15 @@ A premium structured-learning product built with React, TypeScript, Vite and Sup
 - `/course/:slug` sales and outcome page
 - `/auth` sign in and immediate account creation
 - `/app` learner dashboard
-- `/checkout/:slug` PayPal / Razorpay checkout
+- `/checkout/:slug` global PayPal checkout in USD
 - `/learn/:slug` paid ordered route with lessons, quiz gates, progress, XP and final project
 - `/admin` admin-only course, quiz, project review and order management
 
-## Payment routing
+## Payment model
 
-- India: Razorpay in INR
-- International: PayPal in USD
+FINISH uses one global PayPal checkout in USD. Pricing and provider selection are not derived from IP address, country headers, device location or geolocation.
 
-Private payment credentials belong in Supabase Edge Function Secrets. See `PAYMENT.md`.
+Private PayPal credentials belong in Supabase Edge Function Secrets. See `PAYMENT.md`.
 
 ## Local development
 
