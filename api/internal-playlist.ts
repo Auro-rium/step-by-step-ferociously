@@ -19,6 +19,20 @@ const ALLOWED = new Set([
 
 type Video = { id: string; title: string; duration: string | null };
 
+function secondsToText(value: unknown) {
+  const total = Number(value);
+  if (!Number.isFinite(total) || total <= 0) return null;
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = Math.floor(total % 60);
+  return hours ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}` : `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function videoIdFromUrl(value: unknown) {
+  const text = String(value || '');
+  return text.match(/(?:watch\?v=|youtu\.be\/|\/watch\/)([A-Za-z0-9_-]{11})/)?.[1] || null;
+}
+
 function collectVideos(node: unknown, found: Map<string, Video>) {
   if (!node || typeof node !== 'object') return;
   if (Array.isArray(node)) {
@@ -37,61 +51,64 @@ function collectVideos(node: unknown, found: Map<string, Video>) {
   for (const child of Object.values(value)) collectVideos(child, found);
 }
 
-function parseJsonObjectAfter(html: string, marker: string): any | null {
-  const markerIndex = html.indexOf(marker);
-  if (markerIndex < 0) return null;
-  const start = html.indexOf('{', markerIndex + marker.length);
-  if (start < 0) return null;
-  let depth = 0;
-  let quoted = false;
-  let escaped = false;
-  for (let i = start; i < html.length; i += 1) {
-    const char = html[i];
-    if (quoted) {
-      if (escaped) escaped = false;
-      else if (char === '\\') escaped = true;
-      else if (char === '"') quoted = false;
-      continue;
-    }
-    if (char === '"') quoted = true;
-    else if (char === '{') depth += 1;
-    else if (char === '}') {
-      depth -= 1;
-      if (depth === 0) {
-        try { return JSON.parse(html.slice(start, i + 1)); }
-        catch { return null; }
-      }
+async function tryPiped(list: string): Promise<Video[]> {
+  const instances = [
+    'https://pipedapi.kavin.rocks',
+    'https://pipedapi.adminforge.de',
+    'https://pipedapi.reallyaweso.me',
+    'https://pipedapi.leptons.xyz',
+  ];
+  for (const base of instances) {
+    try {
+      const result = await fetch(`${base}/playlists/${encodeURIComponent(list)}`, { headers: { 'User-Agent': 'FINISHCourseIndexer/1.0' } });
+      if (!result.ok) continue;
+      const data = await result.json();
+      const rows = Array.isArray(data?.relatedStreams) ? data.relatedStreams : Array.isArray(data?.videos) ? data.videos : [];
+      const videos = rows.map((row: any) => ({
+        id: row?.videoId || videoIdFromUrl(row?.url),
+        title: String(row?.title || '').trim(),
+        duration: secondsToText(row?.duration),
+      })).filter((row: any) => row.id && row.title);
+      if (videos.length) return videos;
+    } catch {
+      // Try the next public mirror.
     }
   }
-  return null;
+  return [];
+}
+
+async function tryYouTubeBrowse(list: string): Promise<Video[]> {
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36',
+    'Accept-Language': 'en-US,en;q=0.9',
+  };
+  const page = await fetch(`https://www.youtube.com/playlist?list=${encodeURIComponent(list)}&hl=en&gl=US`, { headers });
+  if (!page.ok) return [];
+  const html = await page.text();
+  const key = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1];
+  if (!key) return [];
+  const clientVersion = html.match(/"INNERTUBE_CLIENT_VERSION":"([^"]+)"/)?.[1] || '2.20260729.01.00';
+  const browse = await fetch(`https://www.youtube.com/youtubei/v1/browse?key=${encodeURIComponent(key)}&prettyPrint=false`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json', Origin: 'https://www.youtube.com' },
+    body: JSON.stringify({
+      context: { client: { clientName: 'WEB', clientVersion, hl: 'en', gl: 'US' } },
+      browseId: `VL${list}`,
+    }),
+  });
+  if (!browse.ok) return [];
+  const data = await browse.json();
+  const found = new Map<string, Video>();
+  collectVideos(data, found);
+  return [...found.values()];
 }
 
 export default async function handler(request: any, response: any) {
   const list = String(request.query?.list || '').trim();
   if (!ALLOWED.has(list)) return response.status(403).json({ error: 'playlist_not_allowed' });
 
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36',
-    'Accept-Language': 'en-US,en;q=0.9',
-  };
-  const page = await fetch(`https://www.youtube.com/playlist?list=${encodeURIComponent(list)}&hl=en&gl=US`, { headers });
-  if (!page.ok) return response.status(502).json({ error: 'youtube_fetch_failed', status: page.status });
-  const html = await page.text();
-
-  const key = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1];
-  const context = parseJsonObjectAfter(html, '"INNERTUBE_CONTEXT":');
-  if (!key || !context) return response.status(502).json({ error: 'youtube_config_missing', hasKey: Boolean(key), hasContext: Boolean(context) });
-
-  const browse = await fetch(`https://www.youtube.com/youtubei/v1/browse?key=${encodeURIComponent(key)}&prettyPrint=false`, {
-    method: 'POST',
-    headers: { ...headers, 'Content-Type': 'application/json', Origin: 'https://www.youtube.com' },
-    body: JSON.stringify({ context, browseId: `VL${list}` }),
-  });
-  if (!browse.ok) return response.status(502).json({ error: 'youtube_browse_failed', status: browse.status, detail: (await browse.text()).slice(0, 500) });
-  const data = await browse.json();
-  const found = new Map<string, Video>();
-  collectVideos(data, found);
-
+  const piped = await tryPiped(list);
+  const videos = piped.length ? piped : await tryYouTubeBrowse(list);
   response.setHeader('Cache-Control', 'no-store');
-  return response.status(200).json({ playlistId: list, count: found.size, videos: [...found.values()] });
+  return response.status(200).json({ playlistId: list, count: videos.length, source: piped.length ? 'piped' : 'youtube', videos });
 }
