@@ -39,6 +39,42 @@ function coverFor`,
   return source;
 });
 
+update('src/course-product.tsx', (source) => {
+  source = source
+    .replaceAll('Project submitted. The admin review queue now has something more useful than another payment row.', 'Project submitted for review.')
+    .replaceAll('<Github />Repository', '<Github />Project submission')
+    .replaceAll('<Github />Open repository <ExternalLink />', '<Github />Open project <ExternalLink />')
+    .replaceAll('REPOSITORY URL', 'PROJECT OR REPOSITORY URL')
+    .replaceAll('placeholder="https://github.com/you/project"', 'placeholder="https://your-project-link.example"')
+    .replaceAll('ENGINEERING REFLECTION', 'PROJECT REFLECTION');
+
+  const required = [
+    'Project submitted for review.',
+    'PROJECT OR REPOSITORY URL',
+    'PROJECT REFLECTION',
+    'Project submission',
+    'Open project',
+  ];
+  for (const marker of required) {
+    if (!source.includes(marker)) throw new Error(`Cross-category project copy is missing: ${marker}`);
+  }
+  for (const marker of ['ENGINEERING REFLECTION', '>REPOSITORY URL<', 'Open repository']) {
+    if (source.includes(marker)) throw new Error(`Coding-only project copy remains: ${marker}`);
+  }
+  return source;
+});
+
+update('public/terms.html', (source) => {
+  source = source.replace(
+    'Public repository and live-project links remain governed by their hosting providers.',
+    'Project, repository, document, and live-build links remain governed by their hosting providers.',
+  );
+  if (!source.includes('Project, repository, document, and live-build links')) {
+    throw new Error('Terms do not cover cross-category project links.');
+  }
+  return source;
+});
+
 update('public/launch-discount.js', (source) => {
   source = source.replace(
     '<b>Founding launch</b><i></i><span>50% off every course route</span><i></i><span class="launch-worldwide">₹79 India · $1 worldwide</span>',
@@ -63,10 +99,12 @@ update('public/company-shell.js', (source) => {
     'Focused routes across programming, systems, algorithms, mathematics, security and AI.',
     'Focused routes across finance, programming, systems, algorithms, mathematics, security and AI.',
   );
-  source = source.replace(
-    '<a href="/refunds">Refund & cancellation</a>',
-    '<a href="/refunds">Refund & cancellation</a>\n            <a href="/payments">Payment policy</a>\n            <a href="/cookies">Cookie & storage policy</a>\n            <a href="/acceptable-use">Acceptable use</a>\n            <a href="/content-copyright">Content & copyright</a>',
-  );
+  if (!source.includes('href="/payments"')) {
+    source = source.replace(
+      '<a href="/refunds">Refund & cancellation</a>',
+      '<a href="/refunds">Refund & cancellation</a>\n            <a href="/payments">Payment policy</a>\n            <a href="/cookies">Cookie & storage policy</a>\n            <a href="/acceptable-use">Acceptable use</a>\n            <a href="/content-copyright">Content & copyright</a>',
+    );
+  }
   if (!source.includes('courses: 84, lessons: 2216, quizzes: 168, questions: 3360, projects: 84')) {
     throw new Error('Launch fallback statistics are stale.');
   }
