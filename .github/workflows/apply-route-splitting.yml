@@ -1,0 +1,52 @@
+name: Apply FINISH route splitting
+
+on:
+  push:
+    paths:
+      - scripts/split-routes.mjs
+      - .github/workflows/apply-route-splitting.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  split-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Materialize existing production patches
+        run: npm run typecheck
+
+      - name: Split pages into lazy route modules
+        run: node scripts/split-routes.mjs
+
+      - name: Verify split application
+        run: |
+          npm run typecheck
+          npm run build
+
+      - name: Commit generated application structure
+        run: |
+          if git diff --quiet; then
+            echo "No generated changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src package.json public
+          git commit -m "Split FINISH pages into lazy route chunks"
+          git push
