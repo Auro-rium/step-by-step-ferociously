@@ -1,0 +1,39 @@
+/* FINISH launch discount treatment */
+.launch-strip{
+  min-height:38px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:8px 18px;
+  border-bottom:1px solid rgba(199,119,75,.28);
+  background:#c7774b;
+  color:#130f0c;
+  font:800 10px/1.25 'Manrope',system-ui,sans-serif;
+  letter-spacing:.12em;
+  text-align:center;
+  text-transform:uppercase;
+}
+.launch-strip[hidden]{display:none!important}
+.launch-strip b{font-weight:900}
+.launch-strip i{width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.5}
+
+.launch-price{
+  display:flex!important;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px 10px;
+}
+.launch-price-current{color:var(--ink,#f4efe5);font:800 18px/1 'Manrope',system-ui,sans-serif}
+.launch-price-compare{color:var(--muted,#9f978d);font:700 12px/1 'Manrope',system-ui,sans-serif;text-decoration:line-through;text-decoration-thickness:1px;text-decoration-color:#c7774b}
+.launch-price-badge{padding:6px 8px;border:1px solid rgba(199,119,75,.42);border-radius:999px;background:rgba(199,119,75,.11);color:#e2a07a;font:800 9px/1 'Manrope',system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase}
+
+.course-price .launch-price-current,.payment-card>.launch-price .launch-price-current{font-size:clamp(32px,4vw,48px);font-family:'Newsreader',serif;font-weight:600}
+.course-price .launch-price-compare,.payment-card>.launch-price .launch-price-compare{font-size:15px}
+.payment-card>.launch-price{margin:12px 0 8px}
+
+@media(max-width:620px){
+  .launch-strip{min-height:42px;padding:9px 14px;font-size:9px;letter-spacing:.09em}
+  .launch-strip .launch-worldwide{display:none}
+  .launch-price{gap:7px}
+}
