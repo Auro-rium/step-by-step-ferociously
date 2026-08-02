@@ -1,0 +1,201 @@
+/* FINISH landing hero v2: viewport-safe hierarchy and conversion clarity */
+
+.hero {
+  grid-template-columns: minmax(0, .96fr) minmax(420px, 1.04fr) !important;
+  gap: clamp(38px, 5.5vw, 76px) !important;
+  min-height: calc(100svh - 76px) !important;
+  padding-block: clamp(56px, 7vh, 84px) clamp(72px, 9vh, 104px) !important;
+  align-items: center !important;
+}
+
+.hero-copy {
+  min-width: 0 !important;
+  max-width: 720px !important;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-copy h1 {
+  max-width: 720px !important;
+  margin: 22px 0 26px !important;
+  font-size: clamp(62px, 6.15vw, 92px) !important;
+  line-height: .9 !important;
+  letter-spacing: -.057em !important;
+  text-wrap: balance;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.hero-copy h1 br {
+  display: none !important;
+}
+
+.hero-copy h1 em {
+  display: block !important;
+  margin-top: .04em;
+  color: #a995ff !important;
+}
+
+.hero-copy > p {
+  max-width: 660px !important;
+  font-size: clamp(16px, 1.35vw, 18px) !important;
+  line-height: 1.58 !important;
+}
+
+.status-line {
+  max-width: 100%;
+  line-height: 1.35 !important;
+}
+
+.hero-actions {
+  margin: 30px 0 24px !important;
+  gap: 20px !important;
+}
+
+.hero .button-primary {
+  background: var(--acid) !important;
+  color: #0a0a0c !important;
+  border-color: var(--acid) !important;
+  box-shadow: 0 14px 38px rgba(214, 255, 75, .18) !important;
+}
+
+.hero .button-primary:hover {
+  background: #e2ff78 !important;
+}
+
+.hero .text-link {
+  color: #f4f0e8 !important;
+}
+
+.trust-row {
+  margin-top: 4px;
+  row-gap: 10px !important;
+}
+
+.hero-stage {
+  min-width: 0 !important;
+}
+
+@media (max-width: 1120px) {
+  .hero {
+    grid-template-columns: 1fr !important;
+    min-height: auto !important;
+    gap: 48px !important;
+    padding-top: 62px !important;
+  }
+
+  .hero-copy {
+    max-width: 860px !important;
+  }
+
+  .hero-copy h1 {
+    max-width: 860px !important;
+    font-size: clamp(64px, 8.25vw, 88px) !important;
+  }
+
+  .hero-copy > p {
+    max-width: 720px !important;
+  }
+
+  .hero-stage {
+    min-height: 520px !important;
+  }
+
+  .product-window {
+    max-width: 760px !important;
+    transform: none !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .hero {
+    gap: 38px !important;
+    padding-top: 44px !important;
+    padding-bottom: 68px !important;
+  }
+
+  .hero-copy h1 {
+    margin: 18px 0 22px !important;
+    font-size: clamp(50px, 11.2vw, 68px) !important;
+    line-height: .92 !important;
+    letter-spacing: -.052em !important;
+    text-wrap: pretty;
+  }
+
+  .hero-copy > p {
+    font-size: 16px !important;
+    line-height: 1.55 !important;
+  }
+
+  .status-line {
+    align-items: flex-start !important;
+    font-size: 10px !important;
+    letter-spacing: .085em !important;
+  }
+
+  .status-line span {
+    flex: 0 0 auto;
+    margin-top: 2px;
+  }
+
+  .hero-actions {
+    align-items: stretch !important;
+    flex-direction: column !important;
+    margin: 26px 0 22px !important;
+    gap: 14px !important;
+  }
+
+  .hero-actions .button,
+  .hero-actions .text-link {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .hero-actions .text-link {
+    min-height: 46px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 999px;
+    background: rgba(255,255,255,.025);
+  }
+
+  .trust-row {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 9px !important;
+    font-size: 11px !important;
+  }
+
+  .hero-stage {
+    min-height: 420px !important;
+  }
+}
+
+@media (max-width: 620px) {
+  .hero-copy h1 {
+    font-size: clamp(44px, 13vw, 58px) !important;
+    line-height: .93 !important;
+  }
+
+  .hero-copy h1 em {
+    margin-top: .08em;
+  }
+
+  .hero-stage {
+    display: none !important;
+  }
+
+  .manifesto {
+    border-top: 1px solid rgba(0,0,0,.12);
+  }
+}
+
+@media (max-height: 760px) and (min-width: 761px) {
+  .hero {
+    min-height: auto !important;
+    padding-block: 48px 68px !important;
+  }
+
+  .hero-stage {
+    min-height: 470px !important;
+  }
+}
