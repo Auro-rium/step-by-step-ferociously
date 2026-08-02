@@ -18,10 +18,10 @@
           </aside>
         </div>
         <div class="company-proof-grid">
-          <article><small>CATALOG</small><strong>24 rigorous courses</strong><p>Focused routes across programming, systems, algorithms, mathematics, security and AI.</p></article>
-          <article><small>COURSEWORK</small><strong>737 ordered lectures</strong><p>Canonical lecture sequences with a clear next step instead of tab wandering.</p></article>
-          <article><small>ASSESSMENT</small><strong>480 authored questions</strong><p>Knowledge checks tied to the actual material, not generic trivia assembled for decoration.</p></article>
-          <article><small>OWNERSHIP</small><strong>Independent product</strong><p>FINISH is not affiliated with YouTube, MIT, Harvard, CMU or the source-course publishers.</p></article>
+          <article><small>CATALOG</small><strong>44 rigorous courses</strong><p>Focused routes across programming, systems, algorithms, mathematics, security and AI.</p></article>
+          <article><small>COURSEWORK</small><strong>1,185 ordered lectures</strong><p>Canonical lecture sequences with a clear next step instead of tab wandering.</p></article>
+          <article><small>ASSESSMENT</small><strong>880 authored questions</strong><p>Knowledge checks tied to the actual material, not generic trivia assembled for decoration.</p></article>
+          <article><small>OWNERSHIP</small><strong>Independent product</strong><p>FINISH is not affiliated with YouTube, MIT, Stanford, Harvard, CMU or the source-course publishers.</p></article>
         </div>
       </div>`;
   }
