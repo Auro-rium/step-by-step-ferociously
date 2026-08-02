@@ -1,3 +1,5 @@
+import './routes/routes.css';
+
 const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/';
 
 async function start() {
