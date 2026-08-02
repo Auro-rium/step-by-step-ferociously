@@ -1,0 +1,235 @@
+/* FINISH palette v3: burnished editorial, not synthetic neon.
+   Brand/action = copper. Progress/success = lichen. Structure = carbon + bone. */
+
+:root,
+:root[data-theme='dark'] {
+  --bg: #0b0b09;
+  --bg-2: #11110e;
+  --panel: #161510;
+  --panel-raised: #1d1b16;
+  --ink: #f2ecdf;
+  --muted: #a69e90;
+  --line: rgba(242, 236, 223, .12);
+  --dark: #0b0b09;
+  --dark-2: #13120f;
+  --white: #fffdf8;
+  --shadow: 0 28px 90px rgba(0, 0, 0, .42);
+
+  /* Compatibility aliases. Purple is gone visually, even where legacy selectors remain. */
+  --purple: #c77a45;
+  --purple-2: #e2a06e;
+  --acid: #c9d86f;
+
+  --brand: #c77a45;
+  --brand-strong: #e2a06e;
+  --brand-deep: #8f4e2d;
+  --brand-soft: rgba(199, 122, 69, .15);
+  --signal: #c9d86f;
+  --signal-soft: rgba(201, 216, 111, .14);
+  --bone: #f2ecdf;
+  --carbon: #0b0b09;
+}
+
+html { background: var(--bg); }
+body {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(199, 122, 69, .055), transparent 27rem),
+    var(--bg);
+}
+
+::selection { background: rgba(199, 122, 69, .38); color: var(--white); }
+
+:focus-visible {
+  outline-color: var(--brand-strong) !important;
+  box-shadow: 0 0 0 4px rgba(199, 122, 69, .12);
+}
+
+.brand span,
+.eyebrow,
+.desktop-nav a.active,
+.preview-sidebar > small,
+.preview-label,
+.real-course-artwork .artwork-copy small {
+  color: var(--brand-strong) !important;
+}
+
+.desktop-nav a.active::after { background: var(--brand) !important; }
+
+.site-header,
+.site-header-app {
+  background: rgba(11, 11, 9, .88) !important;
+  border-bottom-color: rgba(242, 236, 223, .09) !important;
+}
+
+.button-primary,
+.button-acid {
+  background: var(--brand) !important;
+  border-color: var(--brand) !important;
+  color: #100d09 !important;
+  box-shadow: 0 14px 38px rgba(199, 122, 69, .2) !important;
+}
+
+.button-primary:hover,
+.button-acid:hover,
+.hero .button-primary:hover {
+  background: var(--brand-strong) !important;
+  border-color: var(--brand-strong) !important;
+}
+
+.button-soft {
+  background: rgba(242, 236, 223, .035) !important;
+  border-color: rgba(242, 236, 223, .13) !important;
+}
+
+.button-dark {
+  background: var(--bone) !important;
+  color: #11100d !important;
+}
+
+/* Hero: editorial warmth, no purple glow. */
+.hero-copy h1 em { color: var(--brand-strong) !important; }
+.hero .button-primary {
+  background: var(--brand) !important;
+  border-color: var(--brand) !important;
+  color: #100d09 !important;
+  box-shadow: 0 16px 44px rgba(199, 122, 69, .21) !important;
+}
+.status-line span {
+  background: var(--signal) !important;
+  box-shadow: 0 0 0 7px rgba(201, 216, 111, .13) !important;
+}
+.hero-stage::before {
+  background: radial-gradient(circle, rgba(199, 122, 69, .34), transparent 70%) !important;
+  opacity: .28 !important;
+}
+.stage-orbit { border-color: rgba(199, 122, 69, .25) !important; }
+.product-window {
+  border-color: rgba(226, 160, 110, .17) !important;
+  background: #10100e !important;
+  box-shadow: 0 50px 130px rgba(0, 0, 0, .5) !important;
+}
+.window-top { background: #171611 !important; }
+.window-top span:first-child { background: var(--brand) !important; }
+.preview-sidebar { background: #0b0b09 !important; }
+.preview-step.done i {
+  background: var(--brand) !important;
+  border-color: var(--brand) !important;
+  color: #130f0a !important;
+}
+.preview-step.active i {
+  background: var(--signal) !important;
+  border-color: var(--signal) !important;
+}
+.preview-video {
+  background: radial-gradient(circle at 28% 18%, #6d3c24, #262019 48%, #11100d 76%) !important;
+}
+.preview-video svg,
+.preview-bottom span { color: var(--signal) !important; }
+.preview-progress span,
+.progress span { background: var(--signal) !important; }
+.floating-card svg { color: var(--brand-strong) !important; }
+
+/* Editorial separator instead of neon strip. */
+.manifesto {
+  background: #e8dfcf !important;
+  color: #13110d !important;
+  border-block: 1px solid rgba(199, 122, 69, .55) !important;
+}
+
+/* Product sections. */
+.method-grid svg { color: var(--brand-strong) !important; }
+.method-grid article:hover {
+  border-color: rgba(199, 122, 69, .48) !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .34) !important;
+}
+.value-card {
+  background:
+    radial-gradient(circle at 86% 82%, rgba(199, 122, 69, .25), transparent 36%),
+    #12110e !important;
+  border-color: rgba(226, 160, 110, .15) !important;
+}
+.value-number::before { color: var(--brand-strong) !important; opacity: .18 !important; }
+
+/* Catalog and course surfaces. */
+.catalog-toolbar,
+.course-card,
+.panel,
+.owned-card,
+.included-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.008)), var(--panel) !important;
+  border-color: rgba(242, 236, 223, .105) !important;
+}
+.catalog-search {
+  background: #100f0c !important;
+  border-color: rgba(242, 236, 223, .12) !important;
+}
+.catalog-search:focus,
+.form input:focus,
+.form textarea:focus,
+.form select:focus {
+  border-color: var(--brand) !important;
+  box-shadow: 0 0 0 4px rgba(199, 122, 69, .12) !important;
+}
+.category-chip:hover,
+.category-chip.active {
+  background: var(--brand) !important;
+  border-color: var(--brand) !important;
+  color: #100d09 !important;
+}
+.course-card-category {
+  background: var(--brand-soft) !important;
+  color: var(--brand-strong) !important;
+  border: 1px solid rgba(199, 122, 69, .16);
+}
+.course-card:hover,
+.owned-card:hover {
+  border-color: rgba(199, 122, 69, .42) !important;
+  box-shadow: 0 24px 72px rgba(0, 0, 0, .38) !important;
+}
+.owned,
+.back-link:hover,
+.breadcrumb a:hover { color: var(--signal) !important; }
+
+/* Real source thumbnails get a restrained warm frame. */
+.real-course-artwork { background: #0d0d0b !important; }
+.real-course-artwork img { filter: saturate(.72) contrast(1.08) sepia(.08) !important; }
+.course-card:hover .real-course-artwork img { filter: saturate(.88) contrast(1.08) sepia(.04) !important; }
+.real-artwork-shade {
+  background:
+    linear-gradient(180deg, rgba(11,11,9,.08), rgba(11,11,9,.08) 35%, rgba(11,11,9,.95) 100%),
+    linear-gradient(90deg, rgba(78,42,23,.4), transparent 72%) !important;
+}
+.real-artwork-top span {
+  background: rgba(14, 13, 10, .72) !important;
+  border-color: rgba(226, 160, 110, .24) !important;
+  color: var(--bone) !important;
+}
+
+/* Learning state: copper navigates, lichen confirms completion. */
+.preview-step.done,
+.step-item.done,
+.route-step.done { color: var(--bone) !important; }
+.step-item.active,
+.route-step.active { border-color: rgba(199, 122, 69, .48) !important; }
+.step-item.done i,
+.route-step.done i,
+.check-success,
+.form-message.success { color: var(--signal) !important; }
+.xp-badge,
+.streak-badge,
+.auth-icon { color: var(--brand-strong) !important; }
+
+/* Remove lingering synthetic purple shadows and highlights. */
+.course-card,
+.method-grid article,
+.owned-card,
+.button,
+.panel { --local-accent: var(--brand); }
+
+@media (max-width: 760px) {
+  body { background: var(--bg); }
+  .hero-actions .text-link {
+    border-color: rgba(226, 160, 110, .16) !important;
+    background: rgba(199, 122, 69, .035) !important;
+  }
+}
