@@ -1,0 +1,104 @@
+name: Real course thumbnails v2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/real-course-thumbnails-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: ${{ !contains(github.event.head_commit.message || '', '[real-thumbnails-v2]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Replace generated artwork with canonical lecture thumbnails
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('src/main.tsx')
+          text = path.read_text()
+
+          if 'challenge_steps?:' not in text:
+              text = text.replace(
+                  '  challenge_prices?: ChallengePrice[];\n}',
+                  '  challenge_prices?: ChallengePrice[];\n  challenge_steps?: { youtube_video_id?: string | null; position?: number | null }[];\n}'
+              )
+
+          text = text.replace(
+              ".select('*, challenge_prices(*)')\n      .eq('status', 'published')",
+              ".select('*, challenge_prices(*), challenge_steps(youtube_video_id, position)')\n      .eq('status', 'published')"
+          )
+          text = text.replace(
+              "supabase.from('challenges').select('*, challenge_prices(*)').eq('slug', slug)",
+              "supabase.from('challenges').select('*, challenge_prices(*), challenge_steps(youtube_video_id, position)').eq('slug', slug)"
+          )
+          text = text.replace(
+              "supabase.from('enrollments').select('*, challenges(*, challenge_prices(*))')",
+              "supabase.from('enrollments').select('*, challenges(*, challenge_prices(*), challenge_steps(youtube_video_id, position))')"
+          )
+
+          replacement = r'''function CourseArtwork({ course, compact = false }: { course: Challenge; compact?: boolean }) {
+  const firstVideoId = [...(course.challenge_steps ?? [])]
+    .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
+    .find((step) => step.youtube_video_id)?.youtube_video_id;
+  const thumbnail = firstVideoId ? `https://i.ytimg.com/vi/${firstVideoId}/maxresdefault.jpg` : null;
+  return <div className={`course-artwork real-course-artwork ${compact ? 'compact' : ''}`}>
+    {thumbnail ? <img src={thumbnail} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={(event) => { const fallback = `https://i.ytimg.com/vi/${firstVideoId}/hqdefault.jpg`; if (event.currentTarget.src !== fallback) event.currentTarget.src = fallback; }} /> : null}
+    <div className="real-artwork-shade" />
+    <div className="real-artwork-top"><span>{course.source_channel || 'UNIVERSITY COURSE'}</span><span>{course.difficulty || 'Advanced'}</span></div>
+    <div className="artwork-copy"><small>{course.eyebrow || course.source_title || 'FINISH COURSE'}</small><strong>{course.title}</strong></div>
+  </div>;
+}
+
+function CourseCard'''
+
+          pattern = r'function courseCoverData\(course: Challenge\) \{.*?\n\}\n\nfunction CourseArtwork\(\{ course, compact = false \}: \{ course: Challenge; compact\?: boolean \}\) \{.*?\n\}\n\nfunction CourseCard'
+          updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'Generated artwork block replacement count was {count}')
+          text = updated
+          text += '\n// real-course-thumbnails-v2\n'
+          path.write_text(text)
+
+          css_path = Path('src/styles.css')
+          css = css_path.read_text()
+          css += r'''
+
+/* Canonical first-lecture course artwork */
+.real-course-artwork{background:#090b11;isolation:isolate}
+.real-course-artwork img{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;filter:saturate(.82) contrast(1.08);transform:scale(1.015);transition:transform .5s ease,filter .35s ease}
+.course-card:hover .real-course-artwork img{transform:scale(1.045);filter:saturate(.96) contrast(1.08)}
+.real-artwork-shade{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(4,6,12,.16) 0%,rgba(4,6,12,.1) 32%,rgba(4,6,12,.94) 100%),linear-gradient(90deg,rgba(4,6,12,.6),transparent 74%)}
+.real-artwork-top{position:absolute;z-index:2;top:20px;left:22px;right:22px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+.real-artwork-top span{padding:7px 10px;border:1px solid rgba(255,255,255,.19);border-radius:999px;background:rgba(7,9,15,.64);backdrop-filter:blur(10px);color:#f3f3f5;font:700 9px/1 'Manrope';letter-spacing:.08em;text-transform:uppercase}
+.real-course-artwork .artwork-copy{display:grid;z-index:2;text-shadow:0 2px 24px rgba(0,0,0,.72)}
+.real-course-artwork .artwork-copy small{color:#d6ff4b}
+.real-course-artwork .artwork-copy strong{font-family:'Manrope',sans-serif;font-weight:800;line-height:.98;letter-spacing:-.045em;max-width:92%}
+.real-course-artwork .artwork-glow,.real-course-artwork .artwork-grid{display:none}
+@media(max-width:620px){.real-artwork-top{top:14px;left:15px;right:15px}.real-artwork-top span{font-size:8px;padding:6px 8px}.real-course-artwork .artwork-copy{inset:auto 18px 20px}}
+'''
+          css_path.write_text(css)
+          PY
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Commit verified release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.tsx src/styles.css
+          git commit -m "Use real lecture thumbnails for every course [real-thumbnails-v2]"
+          git push origin HEAD:main
