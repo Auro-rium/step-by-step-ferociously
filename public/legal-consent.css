@@ -1,0 +1,55 @@
+.checkout-policy-consent{
+  margin:0 0 24px;
+  padding:18px 20px;
+  border:1px solid rgba(196,122,69,.32);
+  border-radius:16px;
+  background:rgba(196,122,69,.065);
+  color:#bdb5a8;
+}
+.checkout-policy-consent label{
+  display:grid;
+  grid-template-columns:20px minmax(0,1fr);
+  gap:12px;
+  align-items:start;
+  cursor:pointer;
+  font-size:13px;
+  line-height:1.55;
+}
+.checkout-policy-consent input{
+  width:18px;
+  height:18px;
+  margin-top:1px;
+  accent-color:#c47a45;
+}
+.checkout-policy-consent a{
+  color:#e0a06e;
+  text-decoration:underline;
+  text-decoration-color:rgba(224,160,110,.45);
+  text-underline-offset:3px;
+}
+.checkout-policy-consent small{
+  display:block;
+  margin:10px 0 0 32px;
+  color:#817b70;
+  font-size:11px;
+}
+.checkout-page.policy-locked .checkout-grid .payment-card button{
+  opacity:.42!important;
+  pointer-events:none!important;
+  filter:saturate(.35);
+}
+.checkout-page.policy-locked .checkout-grid::after{
+  content:'Accept the purchase terms above to continue';
+  display:block;
+  grid-column:1/-1;
+  margin-top:-6px;
+  color:#9d9588;
+  text-align:center;
+  font:700 10px/1.3 'Manrope',system-ui,sans-serif;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+@media(max-width:620px){
+  .checkout-policy-consent{padding:16px}
+  .checkout-policy-consent label{font-size:12px}
+}
