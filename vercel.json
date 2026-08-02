@@ -2,6 +2,32 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/(.*)\\.(svg|webp|png|jpg|jpeg|woff2)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
+      ]
+    },
+    {
+      "source": "/(performance-runtime|real-course-thumbnails|launch-discount|company-shell|legal-consent|why-nav)\\.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=300, stale-while-revalidate=3600" }
+      ]
+    },
+    {
+      "source": "/(landing-hero-v2|finish-palette-v3|auth-palette-v2|launch-discount|company-shell|legal-consent|catalog-v3|performance-v1)\\.css",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=300, stale-while-revalidate=3600" }
+      ]
+    }
+  ],
   "routes": [
     { "src": "/why", "dest": "/why.html" },
     { "src": "/why.html", "status": 308, "headers": { "Location": "/why" } },
