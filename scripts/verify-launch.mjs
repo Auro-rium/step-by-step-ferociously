@@ -30,6 +30,7 @@ forbidText('package.json', ['run-paypal-business-link-patch.mjs']);
 
 requireText('index.html', ['<script type="module" src="/src/bootstrap.ts"></script>']);
 forbidText('index.html', ['/legal-consent.js', '/legal-consent.css']);
+forbidText('vercel.json', ['legal-consent', 'youtube-player-helpers']);
 
 requireText('src/main.tsx', [
   'FINISH PayPal Orders v2 checkout',
@@ -247,10 +248,20 @@ for (const temporary of ['api/internal-playlist.ts', 'api/internal-ocw.ts']) {
   if (fs.existsSync(path.join(root, temporary))) failures.push(`${temporary}: temporary ingestion endpoint still exists`);
 }
 
+for (const deadArtifact of [
+  'public/legal-consent.js',
+  'public/legal-consent.css',
+  'scripts/run-paypal-business-link-patch.mjs',
+  'scripts/patch-paypal-business-link.mjs',
+  'scripts/split-routes.mjs',
+]) {
+  if (fs.existsSync(path.join(root, deadArtifact))) failures.push(`${deadArtifact}: purged production-dead artifact returned`);
+}
+
 if (failures.length) {
   console.error('FINISH launch verification failed:');
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
 
-console.log('FINISH launch verification passed: one checkout consent, PayPal Orders v2 creation, automatic capture, verified webhooks, atomic access fulfillment, global USD pricing and policies are coherent.');
+console.log('FINISH launch verification passed: production routes, automatic PayPal fulfillment, policy enforcement and dead-code boundaries are coherent.');
