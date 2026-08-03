@@ -3,16 +3,42 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const targets = [
-  path.join(root, 'src', 'main.tsx'),
-  path.join(root, 'src', 'pages', 'Admin.tsx'),
-].filter((file) => fs.existsSync(file));
+const mainFile = path.join(root, 'src', 'main.tsx');
+const adminFile = path.join(root, 'src', 'pages', 'Admin.tsx');
 
-function patchOrders(source, relativePath) {
+function patchPricing(source, relativePath) {
+  source = source.replaceAll("p_inr: Number(form.get('inr'))", 'p_inr: 0');
+  source = source.replace(
+    '<div className="form-columns"><label>USD PRICE<input name="usd" type="number" step="0.01" defaultValue="2" required /></label><label>INR PRICE<input name="inr" type="number" step="1" defaultValue="159" required /></label></div>',
+    '<label>GLOBAL PAYPAL PRICE (USD)<input name="usd" type="number" min="0.01" step="0.01" defaultValue="1" required /></label>',
+  );
+  source = source.replace(
+    /<div className="form-columns">\s*<label>USD PRICE<input name="usd" type="number" step="0\.01" defaultValue="2" required \/><\/label>\s*<label>INR PRICE<input name="inr" type="number" step="1" defaultValue="159" required \/><\/label>\s*<\/div>/g,
+    '<label>GLOBAL PAYPAL PRICE (USD)<input name="usd" type="number" min="0.01" step="0.01" defaultValue="1" required /></label>',
+  );
+  source = source.replaceAll('inspect payment activity.', 'inspect automatic PayPal order activity.');
+  source = source.replaceAll('inspect PayPal order activity.', 'inspect automatic PayPal order activity.');
+  source = source.replaceAll('LATEST PAYMENT ACTIVITY', 'LATEST PAYPAL ACTIVITY');
+
+  for (const marker of ['p_inr: 0', 'GLOBAL PAYPAL PRICE (USD)', 'defaultValue="1"']) {
+    if (!source.includes(marker)) {
+      throw new Error(`PayPal pricing patch failed for ${relativePath}: ${marker}`);
+    }
+  }
+  for (const marker of ['INR PRICE', 'defaultValue="159"', "p_inr: Number(form.get('inr'))"]) {
+    if (source.includes(marker)) {
+      throw new Error(`Legacy payment field remains in ${relativePath}: ${marker}`);
+    }
+  }
+  return source;
+}
+
+function patchAdminOrders(source) {
   const ordersStart = source.indexOf("      {tab === 'orders' && (");
-  if (ordersStart < 0) return source;
   const ordersEnd = source.indexOf('\n    </main>', ordersStart);
-  if (ordersEnd < 0) throw new Error(`Admin orders section anchor is missing in ${relativePath}.`);
+  if (ordersStart < 0 || ordersEnd < 0) {
+    throw new Error('Shipped Admin orders section anchors are missing.');
+  }
 
   const orders = `      {tab === 'orders' && (
         <section className="panel orders-panel">
@@ -35,58 +61,30 @@ function patchOrders(source, relativePath) {
         </section>
       )}`;
 
-  return source.slice(0, ordersStart) + orders + source.slice(ordersEnd);
-}
-
-function patchAdmin(file) {
-  let source = fs.readFileSync(file, 'utf8');
-  const relativePath = path.relative(root, file);
-
-  source = source.replaceAll("p_inr: Number(form.get('inr'))", 'p_inr: 0');
-
-  source = source.replace(
-    '<div className="form-columns"><label>USD PRICE<input name="usd" type="number" step="0.01" defaultValue="2" required /></label><label>INR PRICE<input name="inr" type="number" step="1" defaultValue="159" required /></label></div>',
-    '<label>GLOBAL PAYPAL PRICE (USD)<input name="usd" type="number" min="0.01" step="0.01" defaultValue="1" required /></label>',
-  );
-
-  source = source.replace(
-    /<div className="form-columns">\s*<label>USD PRICE<input name="usd" type="number" step="0\.01" defaultValue="2" required \/><\/label>\s*<label>INR PRICE<input name="inr" type="number" step="1" defaultValue="159" required \/><\/label>\s*<\/div>/g,
-    '<label>GLOBAL PAYPAL PRICE (USD)<input name="usd" type="number" min="0.01" step="0.01" defaultValue="1" required /></label>',
-  );
-
-  source = source.replaceAll('inspect payment activity.', 'inspect automatic PayPal order activity.');
-  source = source.replaceAll('inspect PayPal order activity.', 'inspect automatic PayPal order activity.');
-  source = source.replaceAll('LATEST PAYMENT ACTIVITY', 'LATEST PAYPAL ACTIVITY');
-  source = patchOrders(source, relativePath);
-
-  const required = [
-    'p_inr: 0',
-    'GLOBAL PAYPAL PRICE (USD)',
-    'defaultValue="1"',
+  source = source.slice(0, ordersStart) + orders + source.slice(ordersEnd);
+  for (const marker of [
     'LATEST PAYPAL ACTIVITY',
     'PayPal orders are created, captured and verified server-side.',
     'PayPal order:',
     'Capture:',
-  ];
-  for (const marker of required) {
-    if (!source.includes(marker)) throw new Error(`PayPal Orders v2 admin patch failed for ${relativePath}: ${marker}`);
+  ]) {
+    if (!source.includes(marker)) throw new Error(`PayPal Orders v2 admin patch failed: ${marker}`);
   }
-
-  const forbidden = [
-    'INR PRICE',
-    'defaultValue="159"',
-    "p_inr: Number(form.get('inr'))",
+  for (const marker of [
     'admin_confirm_paypal_link_payment',
     'admin_reject_paypal_link_payment',
     'Verify & unlock',
     'PAYPAL TRANSACTION ID',
-  ];
-  for (const marker of forbidden) {
-    if (source.includes(marker)) throw new Error(`Legacy payment admin remains in ${relativePath}: ${marker}`);
+  ]) {
+    if (source.includes(marker)) throw new Error(`Legacy payment admin remains: ${marker}`);
   }
-
-  fs.writeFileSync(file, source);
+  return source;
 }
 
-for (const file of targets) patchAdmin(file);
-console.log(`FINISH automatic PayPal Orders v2 admin applied to ${targets.length} source file(s).`);
+let mainSource = patchPricing(fs.readFileSync(mainFile, 'utf8'), 'src/main.tsx');
+let adminSource = patchPricing(fs.readFileSync(adminFile, 'utf8'), 'src/pages/Admin.tsx');
+adminSource = patchAdminOrders(adminSource);
+
+fs.writeFileSync(mainFile, mainSource);
+fs.writeFileSync(adminFile, adminSource);
+console.log('FINISH automatic PayPal Orders v2 admin applied to the shipped lazy admin route.');
