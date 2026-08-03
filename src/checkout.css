@@ -1,0 +1,51 @@
+/* FINISH checkout policy acceptance */
+.checkout-policy-agreement{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  gap:13px;
+  align-items:flex-start;
+  margin:22px 0 16px;
+  padding:16px;
+  border:1px solid color-mix(in srgb,var(--line) 82%,transparent);
+  border-radius:16px;
+  background:color-mix(in srgb,var(--bg) 38%,transparent);
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.58;
+  cursor:pointer;
+  transition:border-color .18s ease,background .18s ease,box-shadow .18s ease;
+}
+.checkout-policy-agreement:hover{
+  border-color:color-mix(in srgb,var(--acid) 50%,var(--line));
+  background:color-mix(in srgb,var(--acid) 5%,var(--bg));
+}
+.checkout-policy-agreement:has(input:checked){
+  border-color:var(--acid);
+  background:color-mix(in srgb,var(--acid) 8%,transparent);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--acid) 9%,transparent);
+}
+.checkout-policy-agreement input{
+  width:20px;
+  height:20px;
+  margin:1px 0 0;
+  accent-color:var(--acid);
+  cursor:pointer;
+}
+.checkout-policy-agreement span{min-width:0}
+.checkout-policy-agreement a{
+  color:var(--ink);
+  font-weight:800;
+  text-decoration:underline;
+  text-underline-offset:3px;
+}
+.checkout-policy-agreement strong{color:var(--ink)}
+.checkout-policy-agreement:focus-within{
+  outline:3px solid color-mix(in srgb,var(--acid) 18%,transparent);
+  outline-offset:2px;
+}
+.checkout-consent{margin-top:13px;text-align:center}
+.payment-card .button:disabled{transform:none;box-shadow:none}
+
+@media(max-width:620px){
+  .checkout-policy-agreement{padding:14px;gap:11px}
+}
