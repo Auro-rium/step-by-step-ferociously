@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
+const TERMS_VERSION = '2026-08-03';
+const NO_REFUND_VERSION = '2026-08-03';
+
 const paypalBase = () => Deno.env.get('PAYPAL_ENV') === 'live'
   ? 'https://api-m.paypal.com'
   : 'https://api-m.sandbox.paypal.com';
@@ -29,6 +32,15 @@ function amountMatches(order: any, capture: any) {
     && Math.round(Number(value) * 100) === Math.round(Number(order.amount) * 100);
 }
 
+function hasCurrentPolicyConsent(order: any) {
+  return Boolean(
+    order?.terms_accepted_at
+    && order?.no_refund_accepted_at
+    && order?.terms_version === TERMS_VERSION
+    && order?.no_refund_version === NO_REFUND_VERSION
+  );
+}
+
 Deno.serve(async (req: Request) => {
   const siteUrl = Deno.env.get('SITE_URL') || 'https://finish-landing-nine.vercel.app';
   const url = new URL(req.url);
@@ -51,6 +63,7 @@ Deno.serve(async (req: Request) => {
       .eq('provider', 'paypal')
       .single();
     if (orderError || !order || order.provider_order_id !== paypalOrderId) throw new Error('Payment order mismatch');
+    if (!hasCurrentPolicyConsent(order)) throw new Error('Payment order is missing required policy acceptance');
 
     slug = String(order.metadata?.challenge_slug || '');
     if (order.status !== 'paid') {
