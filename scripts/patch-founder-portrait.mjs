@@ -17,8 +17,10 @@ const dataStart = base64Marker >= 0 ? base64Marker + ';base64,'.length : -1;
 let dataEnd = dataStart;
 while (dataEnd >= 0 && dataEnd < source.length && /[A-Za-z0-9+/=]/.test(source[dataEnd])) dataEnd += 1;
 const encodedPortrait = dataStart >= 0 && dataEnd > dataStart ? source.slice(dataStart, dataEnd) : '';
+const sectionEnd = dataEnd > 0 ? source.indexOf('</section>', dataEnd) : -1;
+const replacementEnd = figureEnd > figureOpenEnd ? figureEnd : sectionEnd;
 
-if (encodedPortrait && figureEnd > figureOpenEnd && base64Marker < figureEnd) {
+if (encodedPortrait && replacementEnd > figureOpenEnd && base64Marker < replacementEnd) {
   fs.mkdirSync(imagesDirectory, { recursive: true });
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="3840" viewBox="0 0 3840 3840" role="img" aria-label="Ishan Trivedi, founder of FINISH">
   <defs><clipPath id="portrait-circle"><circle cx="1920" cy="1920" r="1920" /></clipPath></defs>
@@ -39,12 +41,16 @@ const portrait = `<img
           fetchpriority="low"
         />`;
 
-if (encodedPortrait && figureEnd > figureOpenEnd && base64Marker < figureEnd) {
-  const existingFigureBody = source.slice(figureOpenEnd, figureEnd);
-  const caption = existingFigureBody.match(/<figcaption\b[\s\S]*?<\/figcaption>/)?.[0] || '';
-  source = source.slice(0, figureOpenEnd) + portrait + caption + source.slice(figureEnd);
+if (encodedPortrait && replacementEnd > figureOpenEnd && base64Marker < replacementEnd) {
+  if (figureEnd > figureOpenEnd) {
+    const existingFigureBody = source.slice(figureOpenEnd, figureEnd);
+    const caption = existingFigureBody.match(/<figcaption\b[\s\S]*?<\/figcaption>/)?.[0] || '';
+    source = source.slice(0, figureOpenEnd) + portrait + caption + source.slice(figureEnd);
+  } else {
+    source = source.slice(0, figureOpenEnd) + portrait + '</figure>\n    ' + source.slice(sectionEnd);
+  }
 } else if (!source.includes('src="/images/ishan-founder-3840.svg"')) {
-  throw new Error(`The founder portrait could not be parsed: figure=${figureStart}, close=${figureEnd}, base64=${base64Marker}.`);
+  throw new Error(`The founder portrait could not be parsed: figure=${figureStart}, section=${sectionEnd}, base64=${base64Marker}.`);
 }
 if (!fs.existsSync(portraitFile)) {
   throw new Error('The external 4K founder portrait could not be generated.');
