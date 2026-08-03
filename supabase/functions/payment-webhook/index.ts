@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
+const TERMS_VERSION = '2026-08-03';
+const NO_REFUND_VERSION = '2026-08-03';
+
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
@@ -55,7 +58,17 @@ function amountMatches(order: any, amount: unknown, currency: unknown) {
     && Math.round(Number(amount) * 100) === Math.round(Number(order.amount) * 100);
 }
 
+function hasCurrentPolicyConsent(order: any) {
+  return Boolean(
+    order?.terms_accepted_at
+    && order?.no_refund_accepted_at
+    && order?.terms_version === TERMS_VERSION
+    && order?.no_refund_version === NO_REFUND_VERSION
+  );
+}
+
 async function grantAccess(db: any, order: any, paymentId: string | null) {
+  if (!hasCurrentPolicyConsent(order)) throw new Error('Payment order is missing required policy acceptance');
   await db.from('payment_orders').update({
     status: 'paid',
     provider_payment_id: paymentId || order.provider_payment_id,
@@ -153,6 +166,7 @@ Deno.serve(async (req: Request) => {
 
     if (eventType === 'CHECKOUT.ORDER.APPROVED') {
       if (order.status === 'paid') return json({ ok: true, duplicate: true });
+      if (!hasCurrentPolicyConsent(order)) return json({ error: 'Payment order is missing required policy acceptance' }, 400);
       const captured = await capturePaypalOrder(String(resource.id), order.id);
       const capture = captured.purchase_units?.[0]?.payments?.captures?.[0];
       if (captured.status !== 'COMPLETED' || !capture) return json({ ok: true, pending: true });
@@ -161,6 +175,7 @@ Deno.serve(async (req: Request) => {
       }
       await grantAccess(db, order, String(capture.id || resource.id));
     } else if (eventType === 'PAYMENT.CAPTURE.COMPLETED') {
+      if (!hasCurrentPolicyConsent(order)) return json({ error: 'Payment order is missing required policy acceptance' }, 400);
       if (!amountMatches(order, resource.amount?.value, resource.amount?.currency_code)) {
         return json({ error: 'PayPal amount mismatch' }, 400);
       }
