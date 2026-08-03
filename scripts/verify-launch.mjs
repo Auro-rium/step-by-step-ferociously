@@ -22,6 +22,9 @@ function forbidText(file, markers) {
   return source;
 }
 
+requireText('index.html', ['<script type="module" src="/src/bootstrap.ts"></script>']);
+forbidText('index.html', ['/legal-consent.js', '/legal-consent.css']);
+
 requireText('src/main.tsx', [
   'FINISH PayPal Business Link checkout',
   "const PAYPAL_BUSINESS_LINK = 'https://www.paypal.com/ncp/payment/8W4VPV34FECHC'",
@@ -172,4 +175,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('FINISH launch verification passed: catalog, PayPal Business Link checkout, transaction claims, admin verification, global USD pricing, policies and access gating are coherent.');
+console.log('FINISH launch verification passed: one checkout consent, catalog, PayPal Business Link checkout, transaction claims, admin verification, global USD pricing, policies and access gating are coherent.');
