@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "prepare:product": "node scripts/patch-paypal-only.mjs && node scripts/patch-paypal-admin.mjs && node scripts/patch-paypal-business-link.mjs && node scripts/patch-course-categories.mjs && node scripts/patch-legal-policies.mjs && node scripts/patch-finance-catalog.mjs && node scripts/patch-performance.mjs && node scripts/patch-route-splitting.mjs && node scripts/patch-launch-coherence.mjs && node scripts/patch-progress-language.mjs && node scripts/patch-no-refunds.mjs",
+    "prepare:product": "node scripts/patch-paypal-only.mjs && node scripts/patch-paypal-admin.mjs && node scripts/run-paypal-business-link-patch.mjs && node scripts/patch-course-categories.mjs && node scripts/patch-legal-policies.mjs && node scripts/patch-finance-catalog.mjs && node scripts/patch-performance.mjs && node scripts/patch-route-splitting.mjs && node scripts/patch-launch-coherence.mjs && node scripts/patch-progress-language.mjs && node scripts/patch-no-refunds.mjs",
     "verify:launch": "node scripts/verify-launch.mjs",
     "dev": "npm run prepare:product && npm run verify:launch && vite",
     "build": "npm run prepare:product && npm run verify:launch && tsc --noEmit && vite build",
