@@ -17,7 +17,7 @@
       consent.innerHTML = `
         <label for="${consentId}">
           <input id="${consentId}" type="checkbox" />
-          <span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Use</a>, <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>, and <a href="/refunds" target="_blank" rel="noopener">Refund & Cancellation Policy</a>. I understand this is a one-time digital purchase, not a subscription, and ordinary cancellation does not apply after access is granted.</span>
+          <span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Use</a>, <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>, and <a href="/refunds" target="_blank" rel="noopener">No-Refund Policy</a>. I understand this is a one-time digital purchase, not a subscription. All sales are final.</span>
         </label>
         <small>Payment-provider dispute rights and mandatory legal rights remain unaffected.</small>`;
       grid.before(consent);
