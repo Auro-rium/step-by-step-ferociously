@@ -8,7 +8,7 @@ const imagesDirectory = path.join(root, 'public', 'images');
 const portraitFile = path.join(imagesDirectory, 'ishan-founder-3840.svg');
 
 let source = fs.readFileSync(whyFile, 'utf8');
-const inlinePortrait = /(<figure\b[^>]*class="[^"]*founder-photo[^"]*"[^>]*>[\s\S]*?)<img\b[^>]*src="data:image\/jpeg;base64,([^"]+)"[^>]*>([\s\S]*?<\/figure>)/;
+const inlinePortrait = /<img\b[^>]*src="data:image\/jpeg;base64,([^"]+)"[^>]*>/;
 const match = source.match(inlinePortrait);
 
 if (match) {
@@ -16,7 +16,7 @@ if (match) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="3840" viewBox="0 0 3840 3840" role="img" aria-label="Ishan Trivedi, founder of FINISH">
   <defs><clipPath id="portrait-circle"><circle cx="1920" cy="1920" r="1920" /></clipPath></defs>
   <rect width="3840" height="3840" fill="#11100d" clip-path="url(#portrait-circle)" />
-  <image href="data:image/jpeg;base64,${match[2]}" x="-439" y="-1063" width="4725" height="5907" preserveAspectRatio="none" clip-path="url(#portrait-circle)" />
+  <image href="data:image/jpeg;base64,${match[1]}" x="-439" y="-1063" width="4725" height="5907" preserveAspectRatio="none" clip-path="url(#portrait-circle)" />
 </svg>\n`;
   fs.writeFileSync(portraitFile, svg);
 }
@@ -33,9 +33,9 @@ const portrait = `<img
         />`;
 
 if (match) {
-  source = source.replace(inlinePortrait, `${match[1]}${portrait}${match[3]}`);
+  source = source.replace(inlinePortrait, portrait);
 } else if (!source.includes('src="/images/ishan-founder-3840.svg"')) {
-  throw new Error('The founder portrait inside why.html could not be found.');
+  throw new Error('The inline founder portrait inside why.html could not be found.');
 }
 if (!fs.existsSync(portraitFile)) {
   throw new Error('The external 4K founder portrait could not be generated.');
@@ -43,7 +43,8 @@ if (!fs.existsSync(portraitFile)) {
 
 const styles = `
   <style id="founder-portrait-styles">
-    .founder-photo {
+    .founder-photo,
+    .founder-portrait-frame {
       width: clamp(180px, 24vw, 260px) !important;
       aspect-ratio: 1 !important;
       margin: 0 auto !important;
@@ -54,7 +55,7 @@ const styles = `
       box-shadow: 0 24px 72px rgba(0, 0, 0, .38), 0 0 0 9px rgba(199, 122, 69, .07) !important;
       contain: layout paint;
     }
-    .founder-photo .founder-portrait {
+    .founder-portrait {
       display: block !important;
       width: 100% !important;
       height: 100% !important;
@@ -64,7 +65,8 @@ const styles = `
       border-radius: 50% !important;
     }
     @media (max-width: 720px) {
-      .founder-photo { width: 184px !important; }
+      .founder-photo,
+      .founder-portrait-frame { width: 184px !important; }
     }
   </style>`;
 
