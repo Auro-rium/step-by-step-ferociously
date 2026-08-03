@@ -22,23 +22,31 @@ function forbidText(file, markers) {
   return source;
 }
 
+requireText('package.json', [
+  'node scripts/patch-paypal-only.mjs',
+  'node scripts/patch-paypal-admin.mjs',
+]);
+forbidText('package.json', ['run-paypal-business-link-patch.mjs']);
+
 requireText('index.html', ['<script type="module" src="/src/bootstrap.ts"></script>']);
 forbidText('index.html', ['/legal-consent.js', '/legal-consent.css']);
 
 requireText('src/main.tsx', [
-  'FINISH PayPal Business Link checkout',
-  "const PAYPAL_BUSINESS_LINK = 'https://www.paypal.com/ncp/payment/8W4VPV34FECHC'",
+  'FINISH PayPal Orders v2 checkout',
   "const TERMS_VERSION = '2026-08-03'",
   "const NO_REFUND_VERSION = '2026-08-03'",
   'checkout-policy-agreement',
   'terms_accepted: true',
   'no_refund_accepted: true',
   'Agree above to continue',
-  'Open PayPal payment',
-  "supabase.rpc('submit_paypal_link_claim'",
-  'Submit payment for verification',
-  "metadata?.payment_mode === 'hosted_link'",
-  'Access is granted only after FINISH verifies the claimed transaction',
+  'Continue with PayPal',
+  "supabase.functions.invoke('paypal-capture'",
+  "searchParams.get('token')",
+  "searchParams.get('finish_order')",
+  "readiness.data?.paymentMode !== 'orders_v2'",
+  'Payment captured. Opening your course.',
+  'No transaction ID, screenshot, or admin unlock is required.',
+  'FINISH captures and verifies the exact USD amount',
   'function syncDocumentMetadata(',
   "robots.content = options.noIndex ? 'noindex,nofollow'",
   "title: 'Course Catalog | FINISH'",
@@ -49,6 +57,13 @@ requireText('src/main.tsx', [
   "import './checkout.css';",
 ]);
 forbidText('src/main.tsx', [
+  'PAYPAL_BUSINESS_LINK',
+  "supabase.rpc('submit_paypal_link_claim'",
+  'PAYPAL TRANSACTION ID',
+  'Submit payment for verification',
+  "payment_mode === 'hosted_link'",
+  "metadata?.payment_mode === 'hosted_link'",
+  'manual_review',
   'IndianRupee',
   'INR PRICE',
   'defaultValue="159"',
@@ -67,6 +82,11 @@ requireText('src/catalog.css', [
 requireText('src/checkout.css', [
   '.checkout-policy-agreement',
   ':has(input:checked)',
+  '/* FINISH PayPal Orders v2 */',
+  '.admin-order-note',
+  '.payment-order-copy',
+]);
+forbidText('src/checkout.css', [
   '/* FINISH PayPal Business Link */',
   '.paypal-claim-card',
   '.payment-review-order',
@@ -81,12 +101,19 @@ requireText('src/pages/Admin.tsx', [
   'defaultValue="1"',
   'p_inr: 0',
   'LATEST PAYPAL ACTIVITY',
+  'PayPal orders are created, captured and verified server-side.',
+  'PayPal order:',
+  'Capture:',
+]);
+forbidText('src/pages/Admin.tsx', [
+  'INR PRICE',
+  'defaultValue="159"',
+  "p_inr: Number(form.get('inr'))",
   'admin_confirm_paypal_link_payment',
   'admin_reject_paypal_link_payment',
   'Verify & unlock',
-  'PayPal transaction:',
+  'PAYPAL TRANSACTION ID',
 ]);
-forbidText('src/pages/Admin.tsx', ['INR PRICE', 'defaultValue="159"', "p_inr: Number(form.get('inr'))"]);
 
 requireText('src/routes/catalog.ts', [
   'Finance & Investing',
@@ -102,23 +129,67 @@ requireText('src/routes/catalog.ts', [
 forbidText('src/routes/catalog.ts', ['Finance & Markets', "price.currency === 'INR'", "currency === 'INR'"]);
 
 requireText('supabase/functions/payment-checkout/index.ts', [
-  "const PAYPAL_PAYMENT_LINK = 'https://www.paypal.com/ncp/payment/8W4VPV34FECHC'",
-  "payment_mode: 'hosted_link'",
-  'payment_link_id: PAYPAL_PAYMENT_LINK_ID',
+  "payment_mode: 'orders_v2'",
+  '/v2/checkout/orders',
+  'experience_context',
+  "intent: 'CAPTURE'",
+  'custom_id: order.id',
+  'provider_order_id',
+  'PayPal-Request-Id',
   'terms_accepted_at',
   'no_refund_accepted_at',
   'The purchase policies changed. Reload checkout and review them again.',
   "in('access_status', ['paid', 'granted'])",
 ]);
-requireText('supabase/functions/payment-readiness/index.ts', [
-  'paypalHostedLink: true',
-  "paymentMode: 'hosted_link'",
-  "unlockMode: paypalWebhook ? 'webhook_or_admin_verification' : 'admin_verification'",
+forbidText('supabase/functions/payment-checkout/index.ts', [
+  'PAYPAL_PAYMENT_LINK',
+  "payment_mode: 'hosted_link'",
+  'payment_link_id',
 ]);
+
+requireText('supabase/functions/paypal-capture/index.ts', [
+  '/v2/checkout/orders/',
+  '/capture',
+  "db.rpc('finalize_paypal_payment'",
+  'orderReferenceMatches',
+  'PayPal amount or currency mismatch',
+  "order.metadata?.payment_mode !== 'orders_v2'",
+  'Authentication required',
+]);
+
+requireText('supabase/functions/payment-readiness/index.ts', [
+  "paymentMode: 'orders_v2'",
+  "unlockMode: 'automatic_capture'",
+  'paypalApiCheckout',
+  'paypalWebhook',
+  'paypalLive',
+  'paypalApiAuthenticated',
+  'paypalWebhookVerified',
+  'webhookUrlMatches',
+]);
+
 requireText('supabase/functions/payment-webhook/index.ts', [
-  'hasCurrentPolicyConsent',
+  'verificationBody',
+  'rawEvent',
+  "db.rpc('finalize_paypal_payment'",
+  "db.rpc('revoke_paypal_payment'",
+  'processing_status',
   'PAYMENT.CAPTURE.COMPLETED',
+  'PAYMENT.CAPTURE.PENDING',
+  'PAYMENT.CAPTURE.REFUNDED',
+  'PAYMENT.CAPTURE.REVERSED',
   'PayPal amount mismatch',
+]);
+forbidText('supabase/functions/payment-webhook/index.ts', [
+  'JSON.stringify({ ...fields, webhook_id: webhookId, webhook_event: event })',
+]);
+
+requireText('supabase/migrations/20260803100000_paypal_orders_v2.sql', [
+  'payment_orders_provider_order_unique',
+  'finalize_paypal_payment',
+  'revoke_paypal_payment',
+  'processing_status',
+  'grant execute on function public.finalize_paypal_payment',
 ]);
 
 requireText('src/course-product.tsx', [
@@ -136,10 +207,17 @@ forbidText('src/course-product.tsx', [
 ]);
 
 requireText('public/payments.html', [
+  'FINISH requests a corresponding PayPal order.',
+  'FINISH verifies the capture server-side before granting access.',
+  'Server-side verification',
+  'transaction ID sent by a user is not enough by itself',
+]);
+forbidText('public/payments.html', [
   'official PayPal Business Payment Link',
   'submit the PayPal transaction ID',
   'treated as a claim until verified',
 ]);
+
 requireText('public/terms.html', ['Project, repository, document, and live-build links']);
 requireText('public/launch-discount.js', ['$1 USD worldwide · one-time', '$2 USD']);
 forbidText('public/launch-discount.js', ['₹79', '₹159', 'INR', 'India ·']);
@@ -175,4 +253,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('FINISH launch verification passed: one checkout consent, catalog, PayPal Business Link checkout, transaction claims, admin verification, global USD pricing, policies and access gating are coherent.');
+console.log('FINISH launch verification passed: one checkout consent, PayPal Orders v2 creation, automatic capture, verified webhooks, atomic access fulfillment, global USD pricing and policies are coherent.');
