@@ -1,9 +1,33 @@
 import '../styles.css';
+import '../catalog.css';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://ijkdhrznxukawugeoocs.supabase.co';
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_kwSezylj6T63a7nIMtuxcg_0bQWm6-8';
 const SESSION_KEY = 'sb-ijkdhrznxukawugeoocs-auth-token';
 const INITIAL_COURSE_COUNT = 24;
+const CATEGORY_SCROLL_DISTANCE = 360;
+
+const CATALOG_CATEGORY_ORDER = [
+  'Finance & Investing',
+  'AI & Machine Learning',
+  'Programming & Web',
+  'Systems & Architecture',
+  'Algorithms & Data Structures',
+  'Databases',
+  'Mathematics & Statistics',
+  'Cybersecurity',
+];
+
+const CATALOG_SEARCH_ALIASES: Record<string, string> = {
+  'Finance & Investing': 'finance financial markets investing investment corporate finance valuation accounting portfolio asset pricing stocks bonds options derivatives capital budgeting fintech blockchain money banking public finance',
+  'AI & Machine Learning': 'ai ml llm machine learning deep learning neural networks transformers nlp computer vision reinforcement learning generative models data science',
+  'Programming & Web': 'programming coding software development python javascript web django html css git developer tools computer science foundations',
+  'Systems & Architecture': 'operating systems distributed systems architecture hardware cpu memory networks performance graphics nand2tetris systems engineering',
+  'Algorithms & Data Structures': 'algorithms data structures complexity graphs trees hashing dynamic programming problem solving',
+  Databases: 'database databases db sql relational storage indexing query optimization transactions concurrency recovery',
+  'Mathematics & Statistics': 'mathematics maths probability statistics linear algebra matrices signals inference stochastic',
+  Cybersecurity: 'cybersecurity security cryptography privacy threats incident response risk linux networks',
+};
 
 type Price = { provider: string; currency: string; amount: number; active?: boolean };
 type Course = {
@@ -30,6 +54,15 @@ function escapeHtml(value: unknown) {
   }[character] || character));
 }
 
+function normalizeCatalogText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9+#.]+/g, ' ')
+    .trim();
+}
+
 function getSession(): SessionInfo {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
@@ -50,30 +83,42 @@ function getSession(): SessionInfo {
 }
 
 function courseCategory(course: Course) {
-  const value = `${course.slug} ${course.title} ${course.description} ${course.source_title || ''}`.toLowerCase();
-  if (/(finance|financial|valuation|accounting|investment|fintech|blockchain|markets|money)/.test(value)) return 'Finance & Markets';
-  if (/(cyber|security|cryptograph)/.test(value)) return 'Cybersecurity';
-  if (/(database|sql|postgres)/.test(value)) return 'Databases';
-  if (/(algorithm|data structure|data-structure)/.test(value)) return 'Algorithms & Data Structures';
-  if (/(linear algebra|probabil|statistics|mathematics|matrix|calculus|signals)/.test(value)) return 'Mathematics & Statistics';
-  if (/(operating system|distributed|architecture|computer system|computation structure|performance engineering|graphics|network)/.test(value)) return 'Systems & Architecture';
-  if (/(artificial intelligence|machine learning|deep learning|neural|language model|transformer|computer vision|reinforcement|nlp|meta learning)/.test(value)) return 'AI & Machine Learning';
+  const value = normalizeCatalogText(`${course.slug} ${course.title} ${course.source_title || ''}`);
+  if (/(finance|financial|accounting|valuation|investing|investment|portfolio|asset pricing|capital market|corporate life cycle|fintech|blockchain and money|banking|public finance)/.test(value)) return 'Finance & Investing';
+  if (/(artificial intelligence|machine learning|deep learning|computer vision|reinforcement learning|natural language|language model|large language|neural network|transformer|generative|meta learning|tensorflow|fast ai|karpathy)/.test(value)) return 'AI & Machine Learning';
+  if (/(cybersecurity|computer systems security|cryptography|cryptanalysis)/.test(value)) return 'Cybersecurity';
+  if (/(database|dbms)/.test(value)) return 'Databases';
+  if (/(linear algebra|probability|statistics|mathematics|matrix methods|signals and systems|probabilistic systems)/.test(value)) return 'Mathematics & Statistics';
+  if (/(algorithm|data structures)/.test(value)) return 'Algorithms & Data Structures';
+  if (/(operating system|distributed system|computation structures|computer architecture|system engineering|performance engineering|computer graphics|nand2tetris|network)/.test(value)) return 'Systems & Architecture';
   return 'Programming & Web';
 }
 
+function courseSearchText(course: Course) {
+  const category = courseCategory(course);
+  return normalizeCatalogText([
+    course.slug,
+    course.title,
+    course.description,
+    course.outcome || '',
+    course.source_title || '',
+    course.source_channel || '',
+    course.difficulty || '',
+    category,
+    CATALOG_SEARCH_ALIASES[category] || '',
+  ].join(' '));
+}
+
 function formatMoney(course: Course) {
-  const prices = (course.challenge_prices || []).filter((price) => price.active !== false);
-  const usd = prices.find((price) => price.currency === 'USD');
-  const inr = prices.find((price) => price.currency === 'INR');
-  const price = usd || inr || prices[0];
-  if (!price) return 'View course';
-  try {
-    return new Intl.NumberFormat(price.currency === 'INR' ? 'en-IN' : 'en-US', {
-      style: 'currency', currency: price.currency, maximumFractionDigits: price.currency === 'INR' ? 0 : 2,
-    }).format(Number(price.amount));
-  } catch {
-    return `${price.currency} ${price.amount}`;
-  }
+  const price = (course.challenge_prices || []).find((item) =>
+    item.active !== false && item.provider === 'paypal' && item.currency === 'USD'
+  );
+  const amount = Number(price?.amount ?? 1);
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 function coverFor(course: Course) {
@@ -138,13 +183,31 @@ export async function mountCatalog() {
     let visibleLimit = INITIAL_COURSE_COUNT;
     const counts = new Map<string, number>();
     for (const course of courses) counts.set(courseCategory(course), (counts.get(courseCategory(course)) || 0) + 1);
-    const categories = ['All courses', ...Array.from(counts.keys()).sort()];
+    const categories = ['All courses', ...CATALOG_CATEGORY_ORDER.filter((item) => (counts.get(item) || 0) > 0)];
 
     main.innerHTML = `
       <header class="page-hero"><p class="eyebrow">THE CATALOG</p><h1>Choose one thing worth finishing.</h1><p>Structured learning routes built around strong free courses. Ordered lectures, two 20-question assessments and a required flagship project.</p></header>
       <section class="catalog-toolbar" aria-label="Course filters">
-        <div class="catalog-search-wrap"><input class="catalog-search" id="catalog-search" type="search" autocomplete="off" placeholder="Search course, university, topic or skill…" aria-label="Search courses"><button class="catalog-clear" type="button" hidden aria-label="Clear search">Clear</button></div>
-        <div class="category-chips" role="list" aria-label="Course categories"></div>
+        <div class="catalog-toolbar-heading">
+          <div><span>FIND YOUR ROUTE</span><p>Search by course, skill, university, instructor or subject.</p></div>
+          <strong>${courses.length} courses</strong>
+        </div>
+        <div class="catalog-search-shell">
+          <svg class="catalog-search-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.8-3.8"></path></svg>
+          <input class="catalog-search" id="catalog-search" type="search" autocomplete="off" spellcheck="false" placeholder="Try valuation, Python, MIT, distributed systems…" aria-label="Search the full course catalog">
+          <button class="catalog-clear" type="button" hidden aria-label="Clear course search">Clear</button>
+          <span class="catalog-search-scope">TITLE · TOPIC · SOURCE</span>
+        </div>
+        <div class="catalog-category-heading"><div><span>BROWSE BY FIELD</span><p>Pick a category or scroll to see every field.</p></div><small>Use arrows, mouse wheel, trackpad or touch</small></div>
+        <div class="category-rail-shell">
+          <button class="category-scroll-button category-scroll-left" type="button" data-category-scroll="-1" aria-label="Scroll categories left">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"></path></svg>
+          </button>
+          <div class="category-chips" role="list" aria-label="Course categories" tabindex="0"></div>
+          <button class="category-scroll-button category-scroll-right" type="button" data-category-scroll="1" aria-label="Scroll categories right">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg>
+          </button>
+        </div>
       </section>
       <div class="catalog-result-line" aria-live="polite"></div>
       <section class="catalog-grid"></section>
@@ -156,18 +219,36 @@ export async function mountCatalog() {
     const more = main.querySelector<HTMLElement>('.catalog-more')!;
     const search = main.querySelector<HTMLInputElement>('#catalog-search')!;
     const clear = main.querySelector<HTMLButtonElement>('.catalog-clear')!;
+    const scope = main.querySelector<HTMLElement>('.catalog-search-scope')!;
+    const scrollLeft = main.querySelector<HTMLButtonElement>('.category-scroll-left')!;
+    const scrollRight = main.querySelector<HTMLButtonElement>('.category-scroll-right')!;
+
+    const updateCategoryControls = () => {
+      const maxScroll = Math.max(0, chips.scrollWidth - chips.clientWidth);
+      const hasOverflow = maxScroll > 4;
+      scrollLeft.hidden = !hasOverflow;
+      scrollRight.hidden = !hasOverflow;
+      scrollLeft.disabled = !hasOverflow || chips.scrollLeft <= 4;
+      scrollRight.disabled = !hasOverflow || chips.scrollLeft >= maxScroll - 4;
+    };
+
+    const centerActiveCategory = () => {
+      const active = chips.querySelector<HTMLElement>('.category-chip.active');
+      active?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      window.setTimeout(updateCategoryControls, 260);
+    };
 
     const render = () => {
-      const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const terms = normalizeCatalogText(query).split(' ').filter(Boolean);
       const filtered = courses.filter((course) => {
         if (category !== 'All courses' && courseCategory(course) !== category) return false;
-        const haystack = `${course.title} ${course.description} ${course.outcome || ''} ${course.source_title || ''} ${course.source_channel || ''} ${course.difficulty || ''} ${courseCategory(course)}`.toLowerCase();
+        const haystack = courseSearchText(course);
         return terms.every((term) => haystack.includes(term));
       });
       const displayed = filtered.slice(0, visibleLimit);
 
-      chips.innerHTML = categories.map((item) => `<button type="button" class="category-chip ${category === item ? 'active' : ''}" data-category="${escapeHtml(item)}">${escapeHtml(item)} <span>${item === 'All courses' ? courses.length : counts.get(item) || 0}</span></button>`).join('');
-      results.innerHTML = `<span><strong>${filtered.length}</strong> of ${courses.length} courses</span><span>${escapeHtml(category)}${query ? ` · “${escapeHtml(query)}”` : ''}</span>`;
+      chips.innerHTML = categories.map((item) => `<button type="button" role="listitem" class="category-chip ${category === item ? 'active' : ''}" data-category="${escapeHtml(item)}" aria-pressed="${category === item}"><span>${escapeHtml(item)}</span><b>${item === 'All courses' ? courses.length : counts.get(item) || 0}</b></button>`).join('');
+      results.innerHTML = `<span><strong>${filtered.length}</strong> of ${courses.length} courses</span><span>${query ? `Search: “${escapeHtml(query)}”` : escapeHtml(category)}</span>`;
       grid.innerHTML = displayed.map((course) => {
         const isOwned = owned.has(course.id);
         const ready = course.route_ready !== false;
@@ -181,21 +262,66 @@ export async function mountCatalog() {
       }).join('');
 
       if (!filtered.length) {
-        grid.innerHTML = '<div class="empty-state panel"><p class="eyebrow">NO MATCHES</p><h2>No courses match this search.</h2><p>Try fewer terms or another category. Search engines, regrettably, still require words that exist.</p><button class="button button-primary" type="button" data-clear-all>Clear filters</button></div>';
+        grid.innerHTML = '<div class="empty-state panel"><p class="eyebrow">NO MATCHES</p><h2>No courses match this search.</h2><p>Try fewer terms or another category.</p><button class="button button-primary" type="button" data-clear-all>Clear filters</button></div>';
       }
       more.innerHTML = filtered.length > displayed.length ? `<button class="button button-soft button-large" type="button" data-show-more>Show ${Math.min(24, filtered.length - displayed.length)} more courses</button>` : '';
       clear.hidden = !query;
+      scope.hidden = Boolean(query);
+      window.requestAnimationFrame(updateCategoryControls);
     };
 
     search.addEventListener('input', () => { query = search.value; visibleLimit = INITIAL_COURSE_COUNT; render(); });
+    search.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && query) {
+        query = '';
+        search.value = '';
+        visibleLimit = INITIAL_COURSE_COUNT;
+        render();
+      }
+    });
+    chips.addEventListener('scroll', updateCategoryControls, { passive: true });
+    chips.addEventListener('wheel', (event) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      event.preventDefault();
+      chips.scrollBy({ left: event.deltaY, behavior: 'auto' });
+    }, { passive: false });
+    chips.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      event.preventDefault();
+      chips.scrollBy({ left: event.key === 'ArrowLeft' ? -CATEGORY_SCROLL_DISTANCE : CATEGORY_SCROLL_DISTANCE, behavior: 'smooth' });
+    });
+    window.addEventListener('resize', updateCategoryControls, { passive: true });
+
     main.addEventListener('click', (event) => {
       const target = event.target as HTMLElement;
+      const scrollButton = target.closest<HTMLButtonElement>('[data-category-scroll]');
+      if (scrollButton) {
+        const direction = Number(scrollButton.dataset.categoryScroll || 0);
+        chips.scrollBy({ left: direction * Math.max(CATEGORY_SCROLL_DISTANCE, chips.clientWidth * 0.72), behavior: 'smooth' });
+        return;
+      }
       const categoryButton = target.closest<HTMLButtonElement>('[data-category]');
-      if (categoryButton) { category = categoryButton.dataset.category || 'All courses'; visibleLimit = INITIAL_COURSE_COUNT; render(); return; }
+      if (categoryButton) {
+        category = categoryButton.dataset.category || 'All courses';
+        visibleLimit = INITIAL_COURSE_COUNT;
+        render();
+        window.requestAnimationFrame(centerActiveCategory);
+        return;
+      }
       if (target.closest('[data-show-more]')) { visibleLimit += 24; render(); return; }
-      if (target.closest('[data-clear-all]') || target.closest('.catalog-clear')) { query = ''; category = 'All courses'; visibleLimit = INITIAL_COURSE_COUNT; search.value = ''; render(); }
+      if (target.closest('[data-clear-all]') || target.closest('.catalog-clear')) {
+        query = '';
+        category = 'All courses';
+        visibleLimit = INITIAL_COURSE_COUNT;
+        search.value = '';
+        render();
+        search.focus();
+        window.requestAnimationFrame(centerActiveCategory);
+      }
     });
+
     render();
+    window.requestAnimationFrame(updateCategoryControls);
   } catch (error) {
     const main = root.querySelector<HTMLElement>('#main-content');
     if (!main) return;
