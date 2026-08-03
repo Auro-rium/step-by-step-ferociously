@@ -25,14 +25,24 @@ function forbidText(file, markers) {
 requireText('src/main.tsx', [
   'FINISH PayPal-only checkout',
   "provider: 'paypal'",
+  "const TERMS_VERSION = '2026-08-03'",
+  "const NO_REFUND_VERSION = '2026-08-03'",
+  'checkout-policy-agreement',
+  'terms_accepted: true',
+  'no_refund_accepted: true',
+  'Agree above to continue',
+  '!paypalReady || !acceptedPolicies || busy',
+  'Payment approval alone does not unlock the course.',
+  'Checking the box records your acceptance on the FINISH payment order.',
   'This course route is still being structured and cannot be purchased yet.',
-  'PayPal processes the payment under its own terms',
   'function syncDocumentMetadata(',
   "robots.content = options.noIndex ? 'noindex,nofollow'",
   "title: 'Course Catalog | FINISH'",
   "title: 'Sign in | FINISH'",
   'title: `${course.title} | FINISH`',
   '<span>{percent}% of lessons</span>',
+  "import './catalog.css';",
+  "import './checkout.css';",
 ]);
 forbidText('src/main.tsx', [
   'IndianRupee',
@@ -41,6 +51,18 @@ forbidText('src/main.tsx', [
   "p_inr: Number(form.get('inr'))",
   "theme: { color: '#7c5cff' }",
   '<span>{percent}% complete</span>',
+  'disabled={!paypalReady || busy}',
+]);
+
+requireText('src/catalog.css', [
+  '.category-rail-shell',
+  '.category-scroll-button',
+  'scroll-snap-type:x proximity',
+  '.catalog-search-shell:focus-within',
+]);
+requireText('src/checkout.css', [
+  '.checkout-policy-agreement',
+  ':has(input:checked)',
 ]);
 
 requireText('src/pages/Learn.tsx', ["robots.content = 'noindex,nofollow'", 'Learning | FINISH']);
@@ -59,8 +81,35 @@ requireText('src/routes/catalog.ts', [
   'Finance & Investing',
   "item.provider === 'paypal' && item.currency === 'USD'",
   "currency: 'USD'",
+  'catalog-search-shell',
+  'category-rail-shell',
+  'data-category-scroll',
+  'Scroll categories left',
+  'Scroll categories right',
+  'centerActiveCategory',
 ]);
 forbidText('src/routes/catalog.ts', ['Finance & Markets', "price.currency === 'INR'", "currency === 'INR'"]);
+
+requireText('supabase/functions/payment-checkout/index.ts', [
+  'terms_accepted_at',
+  'no_refund_accepted_at',
+  'terms_version',
+  'no_refund_version',
+  'The purchase policies changed. Reload checkout and review them again.',
+  "in('access_status', ['paid', 'granted'])",
+]);
+requireText('supabase/functions/paypal-capture/index.ts', [
+  'hasCurrentPolicyConsent',
+  'Payment order is missing required policy acceptance',
+  "data.status !== 'COMPLETED'",
+  'PayPal amount or currency mismatch',
+]);
+requireText('supabase/functions/payment-webhook/index.ts', [
+  'hasCurrentPolicyConsent',
+  'Payment order is missing required policy acceptance',
+  'PAYMENT.CAPTURE.COMPLETED',
+  'PayPal amount mismatch',
+]);
 
 requireText('src/course-product.tsx', [
   'Project submitted for review.',
@@ -111,4 +160,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('FINISH launch verification passed: PayPal-only, global USD, policies, indexing, progress language, split routes, and cross-discipline projects are coherent.');
+console.log('FINISH launch verification passed: catalog navigation, mandatory policy consent, PayPal capture gating, global USD pricing, policies, indexing, and learning routes are coherent.');
