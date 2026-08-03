@@ -8,6 +8,10 @@ function replaceRequired(pattern, replacement, label) {
   source = source.replace(pattern, replacement);
 }
 
+if (!source.includes("import './catalog.css';")) {
+  source = source.replace("import './styles.css';", "import './styles.css';\nimport './catalog.css';");
+}
+
 if (!source.includes('Search, X,')) {
   replaceRequired(
     /import \{ ArrowLeft,([\s\S]*?) WalletCards \} from 'lucide-react';/,
@@ -124,14 +128,18 @@ const toolbarBlock = `<section className="catalog-toolbar" aria-label="Course fi
         <div className="catalog-search-shell">
           <Search size={21} aria-hidden="true" />
           <input className="catalog-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try valuation, Python, distributed systems, MIT…" aria-label="Search the full course catalog" autoComplete="off" />
-          {query ? <button className="catalog-search-clear" type="button" onClick={() => setQuery('')} aria-label="Clear course search"><X size={17} /></button> : <span className="catalog-search-scope">TITLE · TOPIC · SOURCE</span>}
+          {query ? <button className="catalog-search-clear catalog-clear" type="button" onClick={() => setQuery('')} aria-label="Clear course search"><X size={17} /></button> : <span className="catalog-search-scope">TITLE · TOPIC · SOURCE</span>}
         </div>
-        <div className="catalog-category-heading"><span>Browse by field</span><small>Categories update with the published catalog</small></div>
-        <div className="category-chips" role="list" aria-label="Course categories">{categories.map((item) => <button key={item} type="button" className={\`category-chip ${'${category === item ? \'active\' : \'\'}'}\`} onClick={() => setCategory(item)} aria-pressed={category === item}><span>{item}</span><b>{item === 'All courses' ? courses.length : categoryCounts[item] || 0}</b></button>)}</div>
+        <div className="catalog-category-heading"><div><span>BROWSE BY FIELD</span><p>Pick a category or scroll to see every field.</p></div><small>Use arrows, mouse wheel, trackpad or touch</small></div>
+        <div className="category-rail-shell">
+          <button className="category-scroll-button" type="button" aria-label="Scroll categories left" onClick={() => document.querySelector<HTMLElement>('.category-chips')?.scrollBy({ left: -360, behavior: 'smooth' })}><ChevronLeft size={19} /></button>
+          <div className="category-chips" role="list" aria-label="Course categories" tabIndex={0}>{categories.map((item) => <button key={item} type="button" className={\`category-chip ${'${category === item ? \'active\' : \'\'}'}\`} onClick={() => setCategory(item)} aria-pressed={category === item}><span>{item}</span><b>{item === 'All courses' ? courses.length : categoryCounts[item] || 0}</b></button>)}</div>
+          <button className="category-scroll-button" type="button" aria-label="Scroll categories right" onClick={() => document.querySelector<HTMLElement>('.category-chips')?.scrollBy({ left: 360, behavior: 'smooth' })}><ChevronRight size={19} /></button>
+        </div>
       </section>
       <div className="catalog-result-line"><span>{visibleCourses.length} of {courses.length} courses</span><span>{query.trim() ? \`Search: “${'${query.trim()}'}”\` : category}</span></div>`;
 
-if (!source.includes('catalog-toolbar-heading')) {
+if (!source.includes('category-rail-shell')) {
   replaceRequired(
     /<section className="catalog-toolbar" aria-label="Course filters">[\s\S]*?<div className="catalog-result-line">[\s\S]*?<\/div>/,
     toolbarBlock,
@@ -143,11 +151,13 @@ source = source.replace("setCategory('All');", "setCategory('All courses');");
 source = source.replaceAll("theme: { color: '#7c5cff' }", "theme: { color: '#c47a45' }");
 
 const requiredMarkers = [
+  "import './catalog.css';",
   'const CATALOG_CATEGORY_ORDER',
   "'Finance & Investing'",
   "useState('All courses')",
   'const categoryCounts = useMemo',
   'catalog-toolbar-heading',
+  'category-rail-shell',
   'Search, X',
 ];
 for (const marker of requiredMarkers) {
