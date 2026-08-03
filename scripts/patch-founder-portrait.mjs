@@ -8,15 +8,15 @@ const imagesDirectory = path.join(root, 'public', 'images');
 const portraitFile = path.join(imagesDirectory, 'ishan-founder-3840.svg');
 
 let source = fs.readFileSync(whyFile, 'utf8');
-const inlinePortrait = /<img\b[^>]*src="data:image\/jpeg;base64,([^"]+)"[^>]*>/;
-const match = source.match(inlinePortrait);
+const dataMatch = source.match(/data:image\/jpeg;base64,([^"'()\s<]+)/);
+const figureMatch = source.match(/(<figure\b[^>]*class="[^"]*founder-photo[^"]*"[^>]*>)([\s\S]*?)(<\/figure>)/);
 
-if (match) {
+if (dataMatch && figureMatch) {
   fs.mkdirSync(imagesDirectory, { recursive: true });
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="3840" viewBox="0 0 3840 3840" role="img" aria-label="Ishan Trivedi, founder of FINISH">
   <defs><clipPath id="portrait-circle"><circle cx="1920" cy="1920" r="1920" /></clipPath></defs>
   <rect width="3840" height="3840" fill="#11100d" clip-path="url(#portrait-circle)" />
-  <image href="data:image/jpeg;base64,${match[1]}" x="-439" y="-1063" width="4725" height="5907" preserveAspectRatio="none" clip-path="url(#portrait-circle)" />
+  <image href="data:image/jpeg;base64,${dataMatch[1]}" x="-439" y="-1063" width="4725" height="5907" preserveAspectRatio="none" clip-path="url(#portrait-circle)" />
 </svg>\n`;
   fs.writeFileSync(portraitFile, svg);
 }
@@ -32,12 +32,11 @@ const portrait = `<img
           fetchpriority="low"
         />`;
 
-if (match) {
-  source = source.replace(inlinePortrait, portrait);
+if (dataMatch && figureMatch) {
+  const caption = figureMatch[2].match(/<figcaption\b[\s\S]*?<\/figcaption>/)?.[0] || '';
+  source = source.replace(figureMatch[0], `${figureMatch[1]}${portrait}${caption}${figureMatch[3]}`);
 } else if (!source.includes('src="/images/ishan-founder-3840.svg"')) {
-  const images = (source.match(/<img\b[^>]*>/g) || []).map((tag) => tag.slice(0, 260));
-  const figures = (source.match(/<figure\b[^>]*>/g) || []).map((tag) => tag.slice(0, 180));
-  throw new Error(`Founder portrait diagnostic: dataImage=${source.includes('data:image')}; images=${JSON.stringify(images)}; figures=${JSON.stringify(figures)}`);
+  throw new Error('The founder portrait or its figure in why.html could not be found.');
 }
 if (!fs.existsSync(portraitFile)) {
   throw new Error('The external 4K founder portrait could not be generated.');
