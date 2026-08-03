@@ -35,7 +35,9 @@ const portrait = `<img
 if (match) {
   source = source.replace(inlinePortrait, portrait);
 } else if (!source.includes('src="/images/ishan-founder-3840.svg"')) {
-  throw new Error('The inline founder portrait inside why.html could not be found.');
+  const images = (source.match(/<img\b[^>]*>/g) || []).map((tag) => tag.slice(0, 260));
+  const figures = (source.match(/<figure\b[^>]*>/g) || []).map((tag) => tag.slice(0, 180));
+  throw new Error(`Founder portrait diagnostic: dataImage=${source.includes('data:image')}; images=${JSON.stringify(images)}; figures=${JSON.stringify(figures)}`);
 }
 if (!fs.existsSync(portraitFile)) {
   throw new Error('The external 4K founder portrait could not be generated.');
