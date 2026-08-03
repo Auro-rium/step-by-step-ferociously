@@ -15,7 +15,8 @@ const paypalBase = () => Deno.env.get('PAYPAL_ENV') === 'live'
 async function paypalToken() {
   const clientId = Deno.env.get('PAYPAL_CLIENT_ID');
   const clientSecret = Deno.env.get('PAYPAL_CLIENT_SECRET');
-  if (!clientId || !clientSecret) throw new Error('PayPal credentials are missing');
+  if (!clientId || !clientSecret) throw new Error('PayPal live API credentials are missing');
+  if (Deno.env.get('PAYPAL_ENV') !== 'live') throw new Error('PayPal is not configured for live payments');
 
   const response = await fetch(`${paypalBase()}/v1/oauth2/token`, {
     method: 'POST',
@@ -26,13 +27,16 @@ async function paypalToken() {
     body: 'grant_type=client_credentials',
   });
   const data = await response.json();
-  if (!response.ok || !data.access_token) throw new Error(data.error_description || 'PayPal authentication failed');
+  if (!response.ok || !data.access_token) {
+    throw new Error(data.error_description || data.error || 'PayPal authentication failed');
+  }
   return String(data.access_token);
 }
 
-async function verifyPaypalWebhook(req: Request, event: unknown) {
+async function verifyPaypalWebhook(req: Request, rawEvent: string) {
   const webhookId = Deno.env.get('PAYPAL_WEBHOOK_ID');
   if (!webhookId) throw new Error('PayPal webhook ID is missing');
+
   const fields = {
     auth_algo: req.headers.get('paypal-auth-algo'),
     cert_url: req.headers.get('paypal-cert-url'),
@@ -43,13 +47,70 @@ async function verifyPaypalWebhook(req: Request, event: unknown) {
   if (Object.values(fields).some((value) => !value)) return false;
 
   const accessToken = await paypalToken();
+  const prefix = JSON.stringify({
+    ...fields,
+    webhook_id: webhookId,
+  }).slice(0, -1);
+  const verificationBody = `${prefix},"webhook_event":${rawEvent}}`;
+
   const response = await fetch(`${paypalBase()}/v1/notifications/verify-webhook-signature`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...fields, webhook_id: webhookId, webhook_event: event }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: verificationBody,
   });
   const data = await response.json();
   return response.ok && data.verification_status === 'SUCCESS';
+}
+
+async function showPaypalOrder(accessToken: string, paypalOrderId: string) {
+  const response = await fetch(`${paypalBase()}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Could not read the PayPal order');
+  return data;
+}
+
+async function capturePaypalOrder(
+  accessToken: string,
+  paypalOrderId: string,
+  internalOrderId: string,
+) {
+  const response = await fetch(`${paypalBase()}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}/capture`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'PayPal-Request-Id': `${internalOrderId}-webhook-capture-v2`,
+      Prefer: 'return=representation',
+    },
+    body: '{}',
+  });
+  const data = await response.json();
+  if (response.ok) return data;
+
+  if (response.status === 422) {
+    const shown = await showPaypalOrder(accessToken, paypalOrderId);
+    if (shown.status === 'COMPLETED') return shown;
+  }
+
+  const detail = data?.details?.[0]?.description || data?.message || data?.error_description;
+  throw new Error(detail || 'PayPal capture failed');
+}
+
+function firstCapture(paypalOrder: any) {
+  for (const unit of paypalOrder?.purchase_units || []) {
+    const capture = unit?.payments?.captures?.[0];
+    if (capture) return capture;
+  }
+  return null;
 }
 
 function amountMatches(order: any, amount: unknown, currency: unknown) {
@@ -67,60 +128,28 @@ function hasCurrentPolicyConsent(order: any) {
   );
 }
 
-async function grantAccess(db: any, order: any, paymentId: string | null) {
-  if (!hasCurrentPolicyConsent(order)) throw new Error('Payment order is missing required policy acceptance');
-  await db.from('payment_orders').update({
-    status: 'paid',
-    provider_payment_id: paymentId || order.provider_payment_id,
-    updated_at: new Date().toISOString(),
-  }).eq('id', order.id);
-  await db.from('enrollments').upsert({
-    user_id: order.user_id,
-    challenge_id: order.challenge_id,
-    access_status: 'paid',
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id,challenge_id' });
-}
-
-async function revokeAccess(db: any, order: any) {
-  await db.from('payment_orders').update({
-    status: 'refunded',
-    updated_at: new Date().toISOString(),
-  }).eq('id', order.id);
-  await db.from('enrollments').upsert({
-    user_id: order.user_id,
-    challenge_id: order.challenge_id,
-    access_status: 'refunded',
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id,challenge_id' });
-}
-
-async function capturePaypalOrder(providerOrderId: string, internalOrderId: string) {
-  const accessToken = await paypalToken();
-  const response = await fetch(`${paypalBase()}/v2/checkout/orders/${encodeURIComponent(providerOrderId)}/capture`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'PayPal-Request-Id': `${internalOrderId}-webhook-capture`,
-    },
-    body: '{}',
-  });
-
-  let data = await response.json();
-  if (!response.ok) {
-    const shown = await fetch(`${paypalBase()}/v2/checkout/orders/${encodeURIComponent(providerOrderId)}`, {
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    });
-    data = await shown.json();
-    if (!shown.ok || data.status !== 'COMPLETED') throw new Error(data.message || 'PayPal capture failed');
-  }
-  return data;
+async function markEvent(
+  db: any,
+  eventId: string,
+  status: 'processed' | 'ignored' | 'failed',
+  error?: string,
+) {
+  await db
+    .from('payment_webhook_events')
+    .update({
+      processing_status: status,
+      processed_at: status === 'failed' ? null : new Date().toISOString(),
+      last_error: error || null,
+    })
+    .eq('provider', 'paypal')
+    .eq('event_id', eventId);
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-  if (!req.headers.get('paypal-transmission-id')) return json({ error: 'PayPal webhook headers are required' }, 400);
+  if (!req.headers.get('paypal-transmission-id')) {
+    return json({ error: 'PayPal webhook headers are required' }, 400);
+  }
 
   const raw = await req.text();
   const db = createClient(
@@ -129,69 +158,171 @@ Deno.serve(async (req: Request) => {
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 
+  let eventId = req.headers.get('paypal-transmission-id') || '';
   try {
-    const event = JSON.parse(raw);
-    if (!(await verifyPaypalWebhook(req, event))) return json({ error: 'Invalid PayPal signature' }, 400);
+    if (!(await verifyPaypalWebhook(req, raw))) {
+      return json({ error: 'Invalid PayPal signature' }, 400);
+    }
 
-    const eventId = String(event.id || req.headers.get('paypal-transmission-id'));
+    const event = JSON.parse(raw);
+    eventId = String(event.id || eventId);
     const eventType = String(event.event_type || '');
-    const { error: eventError } = await db.from('payment_webhook_events').insert({
+    const eventRecord = {
       provider: 'paypal',
       event_id: eventId,
       event_type: eventType,
       payload: event,
-    });
-    if (eventError?.code === '23505') return json({ ok: true, duplicate: true });
-    if (eventError) return json({ error: 'Could not persist webhook' }, 500);
+      processing_status: 'received',
+      processed_at: null,
+      last_error: null,
+    };
+
+    const inserted = await db
+      .from('payment_webhook_events')
+      .insert(eventRecord);
+    if (inserted.error?.code === '23505') {
+      const existing = await db
+        .from('payment_webhook_events')
+        .select('processing_status')
+        .eq('provider', 'paypal')
+        .eq('event_id', eventId)
+        .single();
+      if (existing.data?.processing_status === 'processed' || existing.data?.processing_status === 'ignored') {
+        return json({ ok: true, duplicate: true });
+      }
+      await db
+        .from('payment_webhook_events')
+        .update({
+          processing_status: 'received',
+          last_error: null,
+          payload: event,
+          event_type: eventType,
+        })
+        .eq('provider', 'paypal')
+        .eq('event_id', eventId);
+    } else if (inserted.error) {
+      throw new Error('Could not persist PayPal webhook');
+    }
 
     const resource = event.resource || {};
     const related = resource.supplementary_data?.related_ids || {};
     const providerOrderId = related.order_id
-      || (eventType === 'CHECKOUT.ORDER.APPROVED' ? resource.id : null);
+      || (['CHECKOUT.ORDER.APPROVED', 'CHECKOUT.PAYMENT-APPROVAL.REVERSED'].includes(eventType) ? resource.id : null);
     const captureId = related.capture_id
       || (eventType.startsWith('PAYMENT.CAPTURE.') ? resource.id : null);
 
     let order: any = null;
     if (providerOrderId) {
-      const result = await db.from('payment_orders').select('*')
-        .eq('provider', 'paypal').eq('provider_order_id', providerOrderId).maybeSingle();
+      const result = await db
+        .from('payment_orders')
+        .select('*')
+        .eq('provider', 'paypal')
+        .eq('provider_order_id', providerOrderId)
+        .maybeSingle();
       order = result.data;
     }
     if (!order && captureId) {
-      const result = await db.from('payment_orders').select('*')
-        .eq('provider', 'paypal').eq('provider_payment_id', captureId).maybeSingle();
+      const result = await db
+        .from('payment_orders')
+        .select('*')
+        .eq('provider', 'paypal')
+        .eq('provider_payment_id', captureId)
+        .maybeSingle();
       order = result.data;
     }
-    if (!order) return json({ ok: true, ignored: true });
+
+    if (!order) {
+      await markEvent(db, eventId, 'ignored');
+      return json({ ok: true, ignored: true });
+    }
+    if (order.metadata?.payment_mode !== 'orders_v2') {
+      await markEvent(db, eventId, 'ignored');
+      return json({ ok: true, ignored: true, reason: 'legacy_order' });
+    }
+    if (!hasCurrentPolicyConsent(order)) {
+      throw new Error('Payment order is missing current policy acceptance');
+    }
 
     if (eventType === 'CHECKOUT.ORDER.APPROVED') {
-      if (order.status === 'paid') return json({ ok: true, duplicate: true });
-      if (!hasCurrentPolicyConsent(order)) return json({ error: 'Payment order is missing required policy acceptance' }, 400);
-      const captured = await capturePaypalOrder(String(resource.id), order.id);
-      const capture = captured.purchase_units?.[0]?.payments?.captures?.[0];
-      if (captured.status !== 'COMPLETED' || !capture) return json({ ok: true, pending: true });
+      if (order.status === 'paid') {
+        await markEvent(db, eventId, 'processed');
+        return json({ ok: true, duplicate: true });
+      }
+
+      const accessToken = await paypalToken();
+      const captured = await capturePaypalOrder(accessToken, String(resource.id), order.id);
+      const capture = firstCapture(captured);
+      if (!capture || String(capture.status).toUpperCase() === 'PENDING') {
+        await db
+          .from('payment_orders')
+          .update({
+            status: 'pending',
+            provider_payment_id: capture?.id || order.provider_payment_id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', order.id);
+        await markEvent(db, eventId, 'processed');
+        return json({ ok: true, pending: true });
+      }
+      if (
+        String(captured.status).toUpperCase() !== 'COMPLETED'
+        || String(capture.status).toUpperCase() !== 'COMPLETED'
+      ) {
+        throw new Error('PayPal capture is not completed');
+      }
       if (!amountMatches(order, capture.amount?.value, capture.amount?.currency_code)) {
-        return json({ error: 'PayPal amount mismatch' }, 400);
+        throw new Error('PayPal amount mismatch');
       }
-      await grantAccess(db, order, String(capture.id || resource.id));
+
+      const finalized = await db.rpc('finalize_paypal_payment', {
+        p_order_id: order.id,
+        p_provider_order_id: String(resource.id),
+        p_provider_payment_id: String(capture.id),
+      });
+      if (finalized.error) throw finalized.error;
     } else if (eventType === 'PAYMENT.CAPTURE.COMPLETED') {
-      if (!hasCurrentPolicyConsent(order)) return json({ error: 'Payment order is missing required policy acceptance' }, 400);
+      if (!providerOrderId) throw new Error('PayPal capture webhook is missing its order ID');
       if (!amountMatches(order, resource.amount?.value, resource.amount?.currency_code)) {
-        return json({ error: 'PayPal amount mismatch' }, 400);
+        throw new Error('PayPal amount mismatch');
       }
-      await grantAccess(db, order, String(resource.id || order.provider_payment_id || ''));
+
+      const finalized = await db.rpc('finalize_paypal_payment', {
+        p_order_id: order.id,
+        p_provider_order_id: String(providerOrderId),
+        p_provider_payment_id: String(resource.id),
+      });
+      if (finalized.error) throw finalized.error;
     } else if (eventType === 'PAYMENT.CAPTURE.PENDING') {
-      await db.from('payment_orders').update({ status: 'pending', updated_at: new Date().toISOString() }).eq('id', order.id);
-    } else if (['PAYMENT.CAPTURE.DENIED', 'CHECKOUT.PAYMENT-APPROVAL.REVERSED'].includes(eventType)) {
-      await db.from('payment_orders').update({ status: 'failed', updated_at: new Date().toISOString() }).eq('id', order.id);
+      await db
+        .from('payment_orders')
+        .update({
+          status: 'pending',
+          provider_payment_id: String(resource.id || order.provider_payment_id || ''),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', order.id);
+    } else if (['PAYMENT.CAPTURE.DENIED', 'PAYMENT.CAPTURE.DECLINED', 'CHECKOUT.PAYMENT-APPROVAL.REVERSED'].includes(eventType)) {
+      const revoked = await db.rpc('revoke_paypal_payment', {
+        p_order_id: order.id,
+        p_status: 'failed',
+      });
+      if (revoked.error) throw revoked.error;
     } else if (['PAYMENT.CAPTURE.REFUNDED', 'PAYMENT.CAPTURE.REVERSED'].includes(eventType)) {
-      await revokeAccess(db, order);
+      const revoked = await db.rpc('revoke_paypal_payment', {
+        p_order_id: order.id,
+        p_status: 'refunded',
+      });
+      if (revoked.error) throw revoked.error;
     } else {
+      await markEvent(db, eventId, 'ignored');
       return json({ ok: true, ignored: true });
     }
 
+    await markEvent(db, eventId, 'processed');
     return json({ ok: true });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : 'Webhook error' }, 500);
+    const message = error instanceof Error ? error.message : 'Webhook processing failed';
+    if (eventId) await markEvent(db, eventId, 'failed', message);
+    return json({ error: message }, 500);
   }
 });
