@@ -23,17 +23,19 @@ function forbidText(file, markers) {
 }
 
 requireText('src/main.tsx', [
-  'FINISH PayPal-only checkout',
-  "provider: 'paypal'",
+  'FINISH PayPal Business Link checkout',
+  "const PAYPAL_BUSINESS_LINK = 'https://www.paypal.com/ncp/payment/8W4VPV34FECHC'",
   "const TERMS_VERSION = '2026-08-03'",
   "const NO_REFUND_VERSION = '2026-08-03'",
   'checkout-policy-agreement',
   'terms_accepted: true',
   'no_refund_accepted: true',
   'Agree above to continue',
-  '!paypalReady || !acceptedPolicies || busy',
-  'Payment approval alone does not unlock the course.',
-  'Checking the box records your acceptance on the FINISH payment order.',
+  'Open PayPal payment',
+  "supabase.rpc('submit_paypal_link_claim'",
+  'Submit payment for verification',
+  "metadata?.payment_mode === 'hosted_link'",
+  'A learner-entered transaction ID is a claim',
   'This course route is still being structured and cannot be purchased yet.',
   'function syncDocumentMetadata(',
   "robots.content = options.noIndex ? 'noindex,nofollow'",
@@ -51,7 +53,7 @@ forbidText('src/main.tsx', [
   "p_inr: Number(form.get('inr'))",
   "theme: { color: '#7c5cff' }",
   '<span>{percent}% complete</span>',
-  'disabled={!paypalReady || busy}',
+  'PayPal setup pending',
 ]);
 
 requireText('src/catalog.css', [
@@ -63,6 +65,9 @@ requireText('src/catalog.css', [
 requireText('src/checkout.css', [
   '.checkout-policy-agreement',
   ':has(input:checked)',
+  '/* FINISH PayPal Business Link */',
+  '.paypal-claim-card',
+  '.payment-review-order',
 ]);
 
 requireText('src/pages/Learn.tsx', ["robots.content = 'noindex,nofollow'", 'Learning | FINISH']);
@@ -74,6 +79,10 @@ requireText('src/pages/Admin.tsx', [
   'defaultValue="1"',
   'p_inr: 0',
   'LATEST PAYPAL ACTIVITY',
+  'admin_confirm_paypal_link_payment',
+  'admin_reject_paypal_link_payment',
+  'Verify & unlock',
+  'PayPal transaction:',
 ]);
 forbidText('src/pages/Admin.tsx', ['INR PRICE', 'defaultValue="159"', "p_inr: Number(form.get('inr'))"]);
 
@@ -91,22 +100,21 @@ requireText('src/routes/catalog.ts', [
 forbidText('src/routes/catalog.ts', ['Finance & Markets', "price.currency === 'INR'", "currency === 'INR'"]);
 
 requireText('supabase/functions/payment-checkout/index.ts', [
+  "const PAYPAL_PAYMENT_LINK = 'https://www.paypal.com/ncp/payment/8W4VPV34FECHC'",
+  "payment_mode: 'hosted_link'",
+  'payment_link_id: PAYPAL_PAYMENT_LINK_ID',
   'terms_accepted_at',
   'no_refund_accepted_at',
-  'terms_version',
-  'no_refund_version',
   'The purchase policies changed. Reload checkout and review them again.',
   "in('access_status', ['paid', 'granted'])",
 ]);
-requireText('supabase/functions/paypal-capture/index.ts', [
-  'hasCurrentPolicyConsent',
-  'Payment order is missing required policy acceptance',
-  "data.status !== 'COMPLETED'",
-  'PayPal amount or currency mismatch',
+requireText('supabase/functions/payment-readiness/index.ts', [
+  'paypalHostedLink: true',
+  "paymentMode: 'hosted_link'",
+  "unlockMode: paypalWebhook ? 'webhook_or_admin_verification' : 'admin_verification'",
 ]);
 requireText('supabase/functions/payment-webhook/index.ts', [
   'hasCurrentPolicyConsent',
-  'Payment order is missing required policy acceptance',
   'PAYMENT.CAPTURE.COMPLETED',
   'PayPal amount mismatch',
 ]);
@@ -125,6 +133,11 @@ forbidText('src/course-product.tsx', [
   'another payment row',
 ]);
 
+requireText('public/payments.html', [
+  'official PayPal Business Payment Link',
+  'submit the PayPal transaction ID',
+  'treated as a claim until verified',
+]);
 requireText('public/terms.html', ['Project, repository, document, and live-build links']);
 requireText('public/launch-discount.js', ['$1 USD worldwide · one-time', '$2 USD']);
 forbidText('public/launch-discount.js', ['₹79', '₹159', 'INR', 'India ·']);
@@ -160,4 +173,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('FINISH launch verification passed: catalog navigation, mandatory policy consent, PayPal capture gating, global USD pricing, policies, indexing, and learning routes are coherent.');
+console.log('FINISH launch verification passed: catalog, PayPal Business Link checkout, transaction claims, admin verification, global USD pricing, policies and access gating are coherent.');
