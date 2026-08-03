@@ -8,15 +8,23 @@ const imagesDirectory = path.join(root, 'public', 'images');
 const portraitFile = path.join(imagesDirectory, 'ishan-founder-3840.svg');
 
 let source = fs.readFileSync(whyFile, 'utf8');
-const dataMatch = source.match(/data:image\/jpeg;base64,([^"'()\s<]+)/);
-const figureMatch = source.match(/(<figure\b[^>]*class="[^"]*founder-photo[^"]*"[^>]*>)([\s\S]*?)(<\/figure>)/);
 
-if (dataMatch && figureMatch) {
+const dataStart = source.indexOf('data:image');
+const dataComma = dataStart >= 0 ? source.indexOf(',', dataStart) : -1;
+let dataEnd = dataComma + 1;
+while (dataEnd > 0 && dataEnd < source.length && /[A-Za-z0-9+/=]/.test(source[dataEnd])) dataEnd += 1;
+const encodedPortrait = dataComma >= 0 && dataEnd > dataComma + 1 ? source.slice(dataComma + 1, dataEnd) : '';
+
+const figureStart = source.indexOf('<figure class="founder-photo"');
+const figureOpenEnd = figureStart >= 0 ? source.indexOf('>', figureStart) + 1 : -1;
+const figureEnd = figureOpenEnd > 0 ? source.indexOf('</figure>', figureOpenEnd) : -1;
+
+if (encodedPortrait && figureStart >= 0 && figureOpenEnd > figureStart && figureEnd > figureOpenEnd) {
   fs.mkdirSync(imagesDirectory, { recursive: true });
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="3840" viewBox="0 0 3840 3840" role="img" aria-label="Ishan Trivedi, founder of FINISH">
   <defs><clipPath id="portrait-circle"><circle cx="1920" cy="1920" r="1920" /></clipPath></defs>
   <rect width="3840" height="3840" fill="#11100d" clip-path="url(#portrait-circle)" />
-  <image href="data:image/jpeg;base64,${dataMatch[1]}" x="-439" y="-1063" width="4725" height="5907" preserveAspectRatio="none" clip-path="url(#portrait-circle)" />
+  <image href="data:image/jpeg;base64,${encodedPortrait}" x="-439" y="-1063" width="4725" height="5907" preserveAspectRatio="none" clip-path="url(#portrait-circle)" />
 </svg>\n`;
   fs.writeFileSync(portraitFile, svg);
 }
@@ -32,11 +40,12 @@ const portrait = `<img
           fetchpriority="low"
         />`;
 
-if (dataMatch && figureMatch) {
-  const caption = figureMatch[2].match(/<figcaption\b[\s\S]*?<\/figcaption>/)?.[0] || '';
-  source = source.replace(figureMatch[0], `${figureMatch[1]}${portrait}${caption}${figureMatch[3]}`);
+if (encodedPortrait && figureStart >= 0 && figureOpenEnd > figureStart && figureEnd > figureOpenEnd) {
+  const existingFigureBody = source.slice(figureOpenEnd, figureEnd);
+  const caption = existingFigureBody.match(/<figcaption\b[\s\S]*?<\/figcaption>/)?.[0] || '';
+  source = source.slice(0, figureOpenEnd) + portrait + caption + source.slice(figureEnd);
 } else if (!source.includes('src="/images/ishan-founder-3840.svg"')) {
-  throw new Error('The founder portrait or its figure in why.html could not be found.');
+  throw new Error('The founder portrait data or founder figure in why.html could not be found.');
 }
 if (!fs.existsSync(portraitFile)) {
   throw new Error('The external 4K founder portrait could not be generated.');
