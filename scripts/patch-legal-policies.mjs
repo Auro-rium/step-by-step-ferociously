@@ -16,13 +16,14 @@ const newFooter = `function Footer() {
   return <footer className="footer"><div className="shell footer-inner footer-policy-layout">
     <div className="footer-brand-block"><Brand /><p>Structured learning on top of excellent YouTube courses.</p><span>© {new Date().getFullYear()} FINISH</span></div>
     <nav className="footer-policy-links" aria-label="Legal and policy links">
-      <a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="/payments">Payments</a><a href="/cookies">Cookies</a><a href="/acceptable-use">Acceptable Use</a><a href="/content-copyright">Content & Copyright</a>
+      <a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">No Refunds</a><a href="/payments">Payments</a><a href="/cookies">Cookies</a><a href="/acceptable-use">Acceptable Use</a><a href="/content-copyright">Content & Copyright</a>
     </nav>
   </div></footer>;
 }`;
 
 if (source.includes(oldFooter)) source = source.replace(oldFooter, newFooter);
 else if (!source.includes('footer-policy-links')) throw new Error('FINISH footer policy anchor is missing.');
+source = source.replaceAll('<a href="/refunds">Refunds</a>', '<a href="/refunds">No Refunds</a>');
 
 const authAnchor = `        <label>PASSWORD<input name="password" type="password" minLength={8} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} placeholder="At least 8 characters" required /></label>`;
 const authReplacement = `${authAnchor}
@@ -34,9 +35,17 @@ const checkoutAnchor = `        <button className="button button-primary button-
           {busy ? <LoaderCircle className="spin" /> : <WalletCards />} {paypalReady ? 'Continue to PayPal' : 'PayPal setup pending'}
         </button>`;
 const checkoutReplacement = `${checkoutAnchor}
-        <p className="policy-consent checkout-consent">By continuing, you agree to the <a href="/terms">Terms</a>, <a href="/payments">Payment Policy</a>, and <a href="/refunds">Refund Policy</a>. PayPal processes the payment under its own terms.</p>`;
+        <p className="policy-consent checkout-consent">By continuing, you agree to the <a href="/terms">Terms</a>, <a href="/payments">Payment Policy</a>, and <a href="/refunds">No-Refund Policy</a>. <strong>All sales are final.</strong> PayPal processes the payment under its own terms.</p>`;
 if (source.includes(checkoutAnchor) && !source.includes('PayPal processes the payment under its own terms')) source = source.replace(checkoutAnchor, checkoutReplacement);
-else if (!source.includes('PayPal processes the payment under its own terms')) throw new Error('FINISH PayPal policy anchor is missing.');
+else if (source.includes('PayPal processes the payment under its own terms')) {
+  source = source
+    .replaceAll('<a href="/refunds">Refund Policy</a>', '<a href="/refunds">No-Refund Policy</a>')
+    .replace('PayPal processes the payment under its own terms.</p>', '<strong>All sales are final.</strong> PayPal processes the payment under its own terms.</p>');
+} else throw new Error('FINISH PayPal policy anchor is missing.');
+
+if (!source.includes('No-Refund Policy') || !source.includes('All sales are final.')) {
+  throw new Error('FINISH no-refund checkout disclosure is missing.');
+}
 
 fs.writeFileSync(mainFile, source);
 
@@ -58,4 +67,4 @@ if (!styles.includes('/* FINISH LEGAL SURFACES */')) {
   fs.writeFileSync(stylesFile, styles);
 }
 
-console.log('FINISH legal policies integrated into footer, sign-up and checkout.');
+console.log('FINISH legal policies integrated with an explicit all-sales-final checkout disclosure.');
