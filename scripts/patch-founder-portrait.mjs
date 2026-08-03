@@ -4,17 +4,26 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const whyFile = path.join(root, 'public', 'why.html');
-const portraitFile = path.join(root, 'public', 'images', 'ishan-founder-3840.webp');
-
-if (!fs.existsSync(portraitFile)) {
-  throw new Error('The optimized 4K founder portrait is missing.');
-}
+const imagesDirectory = path.join(root, 'public', 'images');
+const portraitFile = path.join(imagesDirectory, 'ishan-founder-3840.svg');
 
 let source = fs.readFileSync(whyFile, 'utf8');
+const inlinePortrait = /<img\s+alt="Ishan, founder of FINISH, smiling and giving a thumbs up"\s+src="data:image\/jpeg;base64,([^"]+)">/;
+const match = source.match(inlinePortrait);
+
+if (match) {
+  fs.mkdirSync(imagesDirectory, { recursive: true });
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="3840" viewBox="0 0 3840 3840" role="img" aria-label="Ishan Trivedi, founder of FINISH">
+  <defs><clipPath id="portrait-circle"><circle cx="1920" cy="1920" r="1920" /></clipPath></defs>
+  <rect width="3840" height="3840" fill="#11100d" clip-path="url(#portrait-circle)" />
+  <image href="data:image/jpeg;base64,${match[1]}" x="-439" y="-1063" width="4725" height="5907" preserveAspectRatio="none" clip-path="url(#portrait-circle)" />
+</svg>\n`;
+  fs.writeFileSync(portraitFile, svg);
+}
 
 const portrait = `<img
           class="founder-portrait"
-          src="/images/ishan-founder-3840.webp"
+          src="/images/ishan-founder-3840.svg"
           width="3840"
           height="3840"
           alt="Ishan Trivedi, founder of FINISH"
@@ -23,11 +32,13 @@ const portrait = `<img
           fetchpriority="low"
         />`;
 
-const inlinePortrait = /<img\s+alt="Ishan, founder of FINISH, smiling and giving a thumbs up"\s+src="data:image\/jpeg;base64,[^"]+">/;
-if (inlinePortrait.test(source)) {
+if (match) {
   source = source.replace(inlinePortrait, portrait);
-} else if (!source.includes('src="/images/ishan-founder-3840.webp"')) {
+} else if (!source.includes('src="/images/ishan-founder-3840.svg"')) {
   throw new Error('The founder portrait anchor in why.html could not be found.');
+}
+if (!fs.existsSync(portraitFile)) {
+  throw new Error('The external 4K founder portrait could not be generated.');
 }
 
 const styles = `
@@ -62,7 +73,9 @@ if (!source.includes('id="founder-portrait-styles"')) {
 }
 
 for (const marker of [
-  'src="/images/ishan-founder-3840.webp"',
+  'src="/images/ishan-founder-3840.svg"',
+  'width="3840"',
+  'height="3840"',
   'loading="lazy"',
   'decoding="async"',
   'fetchpriority="low"',
@@ -75,4 +88,4 @@ if (source.includes('data:image/jpeg;base64')) {
 }
 
 fs.writeFileSync(whyFile, source);
-console.log('FINISH founder portrait is external, 4K-ready, lazy-loaded and circular.');
+console.log('FINISH founder portrait is external, 4K-canvas, lazy-loaded and circular.');
