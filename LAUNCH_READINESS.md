@@ -2,8 +2,6 @@
 
 Status: product freeze for payment activation.
 
-Deployment retry requested: 2026-08-03 00:14 IST.
-
 ## Verified product state
 
 - 84 published and route-ready courses
@@ -15,6 +13,9 @@ Deployment retry requested: 2026-08-03 00:14 IST.
 - One global USD catalogue price
 - PayPal is the only active payment provider in product and pricing data
 - No IP, country, timezone, locale, or device-location pricing
+- All successfully captured purchases are final; FINISH offers no voluntary refunds
+- Checkout links the No-Refund Policy and states **All sales are final** before PayPal
+- Verified duplicate, unauthorized or incorrect charges and mandatory payment reversals remain supported
 - Public policy suite is linked from the product
 - Public catalogue and course pages are indexable with canonical metadata
 - Authenticated account, checkout, dashboard, learning, and admin routes are noindex
@@ -26,11 +27,12 @@ Deployment retry requested: 2026-08-03 00:14 IST.
 Every development, type-check, and production build must:
 
 1. Apply the deterministic product patches.
-2. Run `npm run verify:launch`.
-3. Pass TypeScript validation.
-4. Complete the Vite production build.
+2. Enforce the no-refund policy across checkout, policies and public navigation.
+3. Run `npm run verify:launch`.
+4. Pass TypeScript validation.
+5. Complete the Vite production build.
 
-The launch verifier blocks builds that reintroduce INR pricing, Razorpay UI, location pricing, stale catalogue statistics, incomplete policy links, coding-only project language, incorrect progress labels, or private-route indexing.
+The build blocks INR pricing, Razorpay UI, location pricing, stale catalogue statistics, incomplete policy links, coding-only project language, incorrect progress labels, private-route indexing, any seven-day or 20% refund promise, and any checkout that omits the all-sales-final disclosure.
 
 ## Remaining payment activation work
 
@@ -39,6 +41,7 @@ The launch verifier blocks builds that reintroduce INR pricing, Razorpay UI, loc
 3. Confirm the PayPal API base is live rather than sandbox.
 4. Run one real $1 USD purchase through checkout.
 5. Confirm capture, payment order status, webhook idempotency, enrollment creation, course unlock, and dashboard visibility.
-6. Run one refund and confirm access and order status follow the published refund policy.
+6. Simulate a provider reversal and verify the order and access state update correctly.
+7. Verify a duplicate or unauthorized-charge correction without exposing a voluntary refund workflow.
 
 No further catalogue, policy, architecture, pricing, or feature changes are planned before payment activation.
