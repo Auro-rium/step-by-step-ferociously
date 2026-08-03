@@ -8,7 +8,7 @@ const imagesDirectory = path.join(root, 'public', 'images');
 const portraitFile = path.join(imagesDirectory, 'ishan-founder-3840.svg');
 
 let source = fs.readFileSync(whyFile, 'utf8');
-const inlinePortrait = /<img\s+alt="Ishan, founder of FINISH, smiling and giving a thumbs up"\s+src="data:image\/jpeg;base64,([^"]+)">/;
+const inlinePortrait = /(<figure\b[^>]*class="[^"]*founder-photo[^"]*"[^>]*>[\s\S]*?)<img\b[^>]*src="data:image\/jpeg;base64,([^"]+)"[^>]*>([\s\S]*?<\/figure>)/;
 const match = source.match(inlinePortrait);
 
 if (match) {
@@ -16,7 +16,7 @@ if (match) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="3840" viewBox="0 0 3840 3840" role="img" aria-label="Ishan Trivedi, founder of FINISH">
   <defs><clipPath id="portrait-circle"><circle cx="1920" cy="1920" r="1920" /></clipPath></defs>
   <rect width="3840" height="3840" fill="#11100d" clip-path="url(#portrait-circle)" />
-  <image href="data:image/jpeg;base64,${match[1]}" x="-439" y="-1063" width="4725" height="5907" preserveAspectRatio="none" clip-path="url(#portrait-circle)" />
+  <image href="data:image/jpeg;base64,${match[2]}" x="-439" y="-1063" width="4725" height="5907" preserveAspectRatio="none" clip-path="url(#portrait-circle)" />
 </svg>\n`;
   fs.writeFileSync(portraitFile, svg);
 }
@@ -33,9 +33,9 @@ const portrait = `<img
         />`;
 
 if (match) {
-  source = source.replace(inlinePortrait, portrait);
+  source = source.replace(inlinePortrait, `${match[1]}${portrait}${match[3]}`);
 } else if (!source.includes('src="/images/ishan-founder-3840.svg"')) {
-  throw new Error('The founder portrait anchor in why.html could not be found.');
+  throw new Error('The founder portrait inside why.html could not be found.');
 }
 if (!fs.existsSync(portraitFile)) {
   throw new Error('The external 4K founder portrait could not be generated.');
