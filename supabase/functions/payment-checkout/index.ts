@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
+const TERMS_VERSION = '2026-08-03';
+const NO_REFUND_VERSION = '2026-08-03';
+
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -62,14 +65,35 @@ Deno.serve(async (req: Request) => {
     const provider = String(input.provider || 'paypal').toLowerCase();
     if (provider !== 'paypal') return json({ error: 'FINISH accepts PayPal only' }, 400);
 
+    const acceptedTerms = input.terms_accepted === true;
+    const acceptedNoRefund = input.no_refund_accepted === true;
+    const termsVersion = String(input.terms_version || '');
+    const noRefundVersion = String(input.no_refund_version || '');
+    if (!acceptedTerms || !acceptedNoRefund) {
+      return json({ error: 'You must agree to the Terms of Use and acknowledge the No-Refund Policy before payment.' }, 400);
+    }
+    if (termsVersion !== TERMS_VERSION || noRefundVersion !== NO_REFUND_VERSION) {
+      return json({ error: 'The purchase policies changed. Reload checkout and review them again.' }, 409);
+    }
+
     const challengeSlug = String(input.challenge_slug || '').trim();
     const { data: challenge, error: challengeError } = await db
       .from('challenges')
-      .select('id,title,slug,status')
+      .select('id,title,slug,status,route_ready')
       .eq('slug', challengeSlug)
       .eq('status', 'published')
       .single();
     if (challengeError || !challenge) return json({ error: 'Course not found' }, 404);
+    if (challenge.route_ready === false) return json({ error: 'This course is not ready for purchase' }, 409);
+
+    const { data: existingAccess } = await db
+      .from('enrollments')
+      .select('access_status')
+      .eq('user_id', userData.user.id)
+      .eq('challenge_id', challenge.id)
+      .in('access_status', ['paid', 'granted'])
+      .maybeSingle();
+    if (existingAccess) return json({ error: 'This course is already unlocked for your account.' }, 409);
 
     const { data: price, error: priceError } = await db
       .from('challenge_prices')
@@ -81,6 +105,7 @@ Deno.serve(async (req: Request) => {
       .single();
     if (priceError || !price) return json({ error: 'PayPal USD price is not configured' }, 400);
 
+    const acceptedAt = new Date().toISOString();
     const { data: order, error: orderError } = await db.from('payment_orders').insert({
       user_id: userData.user.id,
       challenge_id: challenge.id,
@@ -89,7 +114,19 @@ Deno.serve(async (req: Request) => {
       currency: 'USD',
       amount: price.amount,
       status: 'created',
-      metadata: { email: userData.user.email, challenge_slug: challenge.slug },
+      terms_accepted_at: acceptedAt,
+      terms_version: TERMS_VERSION,
+      no_refund_accepted_at: acceptedAt,
+      no_refund_version: NO_REFUND_VERSION,
+      metadata: {
+        email: userData.user.email,
+        challenge_slug: challenge.slug,
+        policy_acceptance: {
+          terms_version: TERMS_VERSION,
+          no_refund_version: NO_REFUND_VERSION,
+          accepted_at: acceptedAt,
+        },
+      },
     }).select().single();
     if (orderError || !order) return json({ error: 'Could not create payment order' }, 500);
 
@@ -138,7 +175,10 @@ Deno.serve(async (req: Request) => {
 
     const approvalUrl = paypal.links?.find((link: { rel?: string; href?: string }) =>
       link.rel === 'payer-action' || link.rel === 'approve')?.href;
-    if (!approvalUrl) return json({ error: 'PayPal approval URL is missing' }, 502);
+    if (!approvalUrl) {
+      await db.from('payment_orders').update({ status: 'failed', updated_at: new Date().toISOString() }).eq('id', order.id);
+      return json({ error: 'PayPal approval URL is missing' }, 502);
+    }
 
     await db.from('payment_orders').update({
       status: 'pending',
@@ -147,7 +187,13 @@ Deno.serve(async (req: Request) => {
       updated_at: new Date().toISOString(),
     }).eq('id', order.id);
 
-    return json({ kind: 'redirect', provider: 'paypal', checkout_url: approvalUrl, order_id: order.id });
+    return json({
+      kind: 'redirect',
+      provider: 'paypal',
+      checkout_url: approvalUrl,
+      order_id: order.id,
+      policy_versions: { terms: TERMS_VERSION, no_refund: NO_REFUND_VERSION },
+    });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'Unexpected checkout error' }, 500);
   }
