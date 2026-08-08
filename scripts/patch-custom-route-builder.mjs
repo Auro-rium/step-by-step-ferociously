@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mainFile = path.join(root, 'src', 'main.tsx');
+const landingFile = path.join(root, 'src', 'routes', 'landing.ts');
+const catalogFile = path.join(root, 'src', 'routes', 'catalog.ts');
 let main = fs.readFileSync(mainFile, 'utf8');
 
 function replaceRequired(search, replacement, label) {
@@ -12,14 +14,6 @@ function replaceRequired(search, replacement, label) {
     throw new Error(`Custom-route patch could not find ${label}.`);
   }
   main = main.replace(search, replacement);
-}
-
-if (!main.includes("from './pages/CustomRoute'")) {
-  replaceRequired(
-    "import { AdminProjectReviews, FinalProjectPanel, regionalPrice, useRegion, type CourseProject, type CourseStep, type ProjectSubmission, type RegionalOffer } from './course-product';",
-    "import { AdminProjectReviews, FinalProjectPanel, regionalPrice, useRegion, type CourseProject, type CourseStep, type ProjectSubmission, type RegionalOffer } from './course-product';\nimport { CustomRouteBuilder } from './pages/CustomRoute';",
-    'the course product import',
-  );
 }
 
 if (!main.includes('origin_type?:')) {
@@ -62,13 +56,21 @@ if (!main.includes('<NavLink to="/custom">Make a route</NavLink>')) {
   );
 }
 
+if (!main.includes("lazy(() => import('./pages/CustomRoute')")) {
+  replaceRequired(
+    "const Learn = lazy(() => import('./pages/Learn'));\nconst Admin = lazy(() => import('./pages/Admin'));",
+    "const Learn = lazy(() => import('./pages/Learn'));\nconst Admin = lazy(() => import('./pages/Admin'));\nconst CustomRouteBuilder = lazy(() => import('./pages/CustomRoute').then((module) => ({ default: module.CustomRouteBuilder })));",
+    'the lazy route declarations',
+  );
+}
+
 if (!main.includes('function CustomRoutePage()')) {
   replaceRequired(
     '// ---- src/pages/NotFound.tsx ----',
     `function CustomRoutePage() {
   const { user } = useSession();
   if (!user) return <PageLoader label="Opening custom routes" />;
-  return <CustomRouteBuilder client={supabase} userId={user.id} supabaseUrl={supabaseUrl} supabaseKey={supabaseAnonKey} />;
+  return <Suspense fallback={<PageLoader label="Opening custom routes" />}><CustomRouteBuilder client={supabase} userId={user.id} supabaseUrl={supabaseUrl} supabaseKey={supabaseAnonKey} /></Suspense>;
 }
 
 // ---- src/pages/NotFound.tsx ----`,
@@ -113,11 +115,11 @@ main = main.replace(
 );
 
 const required = [
-  "from './pages/CustomRoute'",
   'origin_type?:',
   "finish:catalog:v5",
   ".eq('visibility', 'public')",
   '<NavLink to="/custom">Make a route</NavLink>',
+  "lazy(() => import('./pages/CustomRoute')",
   'function CustomRoutePage()',
   "{ path: '/custom', element: <CustomRoutePage /> }",
   "const customRoute = course.origin_type === 'custom_playlist';",
@@ -129,4 +131,45 @@ for (const marker of required) {
 }
 
 fs.writeFileSync(mainFile, main);
+
+let landing = fs.readFileSync(landingFile, 'utf8');
+if (!landing.includes('<a href="/custom">Make a route</a>')) {
+  landing = landing.replace(
+    '<a href="/catalog">Courses</a>',
+    '<a href="/catalog">Courses</a>\n          <a href="/custom">Make a route</a>',
+  );
+}
+if (!landing.includes('Turn my playlist into a route')) {
+  landing = landing.replace(
+    '<a class="text-link" href="#method">See the method <span aria-hidden="true">→</span></a>',
+    '<a class="text-link" href="/custom">Turn my playlist into a route <span aria-hidden="true">→</span></a>\n              <a class="text-link" href="#method">See the method <span aria-hidden="true">→</span></a>',
+  );
+}
+fs.writeFileSync(landingFile, landing);
+
+let catalog = fs.readFileSync(catalogFile, 'utf8');
+if (!catalog.includes('<a href="/custom">Make a route</a>')) {
+  catalog = catalog.replace(
+    '<a href="/catalog" aria-current="page">Courses</a><a href="/#method">How it works</a>',
+    '<a href="/catalog" aria-current="page">Courses</a><a href="/custom">Make a route</a><a href="/#method">How it works</a>',
+  );
+}
+if (!catalog.includes('&visibility=eq.public&order=')) {
+  catalog = catalog.replace(
+    '&status=eq.published&order=is_featured.desc,created_at.asc',
+    '&status=eq.published&visibility=eq.public&order=is_featured.desc,created_at.asc',
+  );
+}
+fs.writeFileSync(catalogFile, catalog);
+
+for (const [file, markers] of [
+  [landingFile, ['<a href="/custom">Make a route</a>', 'Turn my playlist into a route']],
+  [catalogFile, ['<a href="/custom">Make a route</a>', '&visibility=eq.public&order=']],
+]) {
+  const source = fs.readFileSync(file, 'utf8');
+  for (const marker of markers) {
+    if (!source.includes(marker)) throw new Error(`Custom-route static verification failed for ${path.relative(root, file)}: ${marker}`);
+  }
+}
+
 console.log('FINISH private AI playlist-route builder applied.');
