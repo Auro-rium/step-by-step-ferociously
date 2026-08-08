@@ -47,6 +47,14 @@ type GeneratedRoute = {
   model?: string;
 };
 
+type GenerationAccepted = {
+  accepted: true;
+  request_id: string;
+  status: 'generating';
+  playlist_id: string;
+  message?: string;
+};
+
 type AccessMap = Map<string, string>;
 
 function routeCourse(request: CustomRequest): CustomCourse | null {
@@ -64,12 +72,13 @@ export function CustomRouteBuilder({ client, userId, supabaseUrl, supabaseKey }:
   const [access, setAccess] = useState<AccessMap>(new Map());
   const [playlistUrl, setPlaylistUrl] = useState('');
   const [generated, setGenerated] = useState<GeneratedRoute | null>(null);
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const result = await client
         .from('custom_route_requests')
@@ -90,20 +99,61 @@ export function CustomRouteBuilder({ client, userId, supabaseUrl, supabaseKey }:
       if (enrollmentResult.error) throw enrollmentResult.error;
       setAccess(new Map((enrollmentResult.data ?? []).map((row: { challenge_id: string; access_status: string }) => [row.challenge_id, row.access_status])));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Your custom routes could not load.');
+      if (!silent) setError(reason instanceof Error ? reason.message : 'Your custom routes could not load.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => { void load(); }, [userId]);
 
   const readyCount = useMemo(() => requests.filter((request) => request.status === 'ready').length, [requests]);
+  const hasGenerating = useMemo(() => requests.some((request) => request.status === 'generating'), [requests]);
+  const generationActive = busy || Boolean(activeRequestId) || hasGenerating;
+
+  useEffect(() => {
+    if (!hasGenerating) return;
+    const timer = window.setInterval(() => { void load(true); }, 3000);
+    return () => window.clearInterval(timer);
+  }, [hasGenerating, userId]);
+
+  useEffect(() => {
+    if (!activeRequestId) return;
+    const request = requests.find((row) => row.id === activeRequestId);
+    if (!request) return;
+
+    if (request.status === 'failed') {
+      setError(request.error || 'FINISH could not generate this route.');
+      setActiveRequestId(null);
+      return;
+    }
+
+    if (request.status === 'ready' && request.challenge_id) {
+      const course = routeCourse(request);
+      if (!course) return;
+      setGenerated({
+        request_id: request.id,
+        challenge_id: request.challenge_id,
+        slug: course.slug,
+        title: course.title,
+        description: course.description || undefined,
+        outcome: course.outcome || undefined,
+        difficulty: course.difficulty || undefined,
+        lesson_count: Number(course.lesson_count || request.video_count || 0),
+        price_usd: 1,
+        source_title: request.source_title || undefined,
+        source_channel: request.source_channel || undefined,
+        model: request.model || undefined,
+      });
+      setError('');
+      setActiveRequestId(null);
+    }
+  }, [requests, activeRequestId]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const raw = playlistUrl.trim();
-    if (!raw) return;
+    if (!raw || generationActive) return;
     setBusy(true);
     setError('');
     setGenerated(null);
@@ -122,14 +172,16 @@ export function CustomRouteBuilder({ client, userId, supabaseUrl, supabaseKey }:
         },
         body: JSON.stringify({ playlist_url: raw }),
       });
-      const payload = await response.json().catch(() => ({})) as GeneratedRoute & { error?: string };
-      if (!response.ok || payload.error) throw new Error(payload.error || 'FINISH could not build this route.');
+      const payload = await response.json().catch(() => ({})) as Partial<GenerationAccepted> & { error?: string };
+      if (!response.ok || payload.error || !payload.accepted || !payload.request_id) {
+        throw new Error(payload.error || 'FINISH could not start this route.');
+      }
 
-      setGenerated(payload);
+      setActiveRequestId(payload.request_id);
       setPlaylistUrl('');
-      await load();
+      await load(true);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'FINISH could not build this route.');
+      setError(reason instanceof Error ? reason.message : 'FINISH could not start this route.');
     } finally {
       setBusy(false);
     }
@@ -163,14 +215,14 @@ export function CustomRouteBuilder({ client, userId, supabaseUrl, supabaseKey }:
       <form onSubmit={submit} className="custom-route-form">
         <label htmlFor="playlist-url">PLAYLIST URL</label>
         <div className="custom-route-input-row">
-          <input id="playlist-url" type="url" value={playlistUrl} onChange={(event) => setPlaylistUrl(event.target.value)} placeholder="https://www.youtube.com/playlist?list=..." required disabled={busy} />
-          <button className="button button-acid button-large" disabled={busy || !playlistUrl.trim()}>
-            {busy ? <LoaderCircle className="spin" /> : <Sparkles size={18} />}{busy ? 'Building your route…' : 'Build my FINISH route'}
+          <input id="playlist-url" type="url" value={playlistUrl} onChange={(event) => setPlaylistUrl(event.target.value)} placeholder="https://www.youtube.com/playlist?list=..." required disabled={generationActive} />
+          <button className="button button-acid button-large" disabled={generationActive || !playlistUrl.trim()}>
+            {generationActive ? <LoaderCircle className="spin" /> : <Sparkles size={18} />}{busy ? 'Starting…' : generationActive ? 'Generating in background…' : 'Build my FINISH route'}
           </button>
         </div>
       </form>
       <div className="custom-route-process" aria-live="polite">
-        {busy ? <><LoaderCircle className="spin" /><div><strong>Reading the playlist and generating the structure.</strong><span>FINISH is producing 40 assessment questions plus the final project. Free-model inference can take around a minute, because apparently even robots have queues.</span></div></> : <><LockKeyhole /><div><strong>The source videos stay on YouTube.</strong><span>FINISH reads the playlist order and titles. AI creates the learning structure around that metadata; it does not pretend to transcribe or quote videos it has not read.</span></div></>}
+        {generationActive ? <><LoaderCircle className="spin" /><div><strong>Your route is generating in the background.</strong><span>You can leave this page or close the tab. FINISH will keep working, and this page checks the job automatically every few seconds.</span></div></> : <><LockKeyhole /><div><strong>The source videos stay on YouTube.</strong><span>FINISH reads the playlist order and titles. AI creates the course identity, assessments and flagship project around that metadata; it does not pretend to transcribe or quote videos it has not read.</span></div></>}
       </div>
       {error && <div className="form-message error" role="alert">{error}</div>}
     </section>
