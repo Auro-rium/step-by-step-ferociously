@@ -73,7 +73,7 @@ export function mountLanding() {
               <a class="text-link" href="/custom">Build from my playlist <span aria-hidden="true">→</span></a>
               <a class="text-link" href="#method">See how FINISH works <span aria-hidden="true">↓</span></a>
             </div>
-            <div class="trust-row"><span>✓ First catalog course free</span><span>✓ Custom routes unlock for $1</span><span>✓ No subscription</span></div>
+            <div class="trust-row"><span>✓ First course free</span><span>✓ Custom routes unlock for $1</span><span>✓ No subscription</span></div>
           </div>
           <div class="hero-stage" aria-label="FINISH product preview">
             <div class="stage-orbit orbit-one"></div><div class="stage-orbit orbit-two"></div>
@@ -111,7 +111,7 @@ export function mountLanding() {
         </section>
 
         <section class="section shell value-section">
-          <div class="value-card"><div><p class="eyebrow">TRY THE FULL PRODUCT FIRST</p><h2>Your first catalog course is free.</h2><p>Pick one published FINISH course and use the entire route: ordered lessons, saved progress, both assessments, XP and the flagship project. If the system works for you, additional courses are simple one-time purchases.</p><a class="button button-primary button-large" href="/catalog">Choose my free course <span aria-hidden="true">↗</span></a></div><div class="value-number"><small>FREE TRIAL</small><strong>1</strong><span>complete course</span></div></div>
+          <div class="value-card"><div><p class="eyebrow">TRY THE FULL PRODUCT FIRST</p><h2>Your first catalog course is free.</h2><p>Choose any one course free. Use the entire published FINISH route: ordered lessons, saved progress, both assessments, XP and the flagship project. If the system works for you, additional courses are simple one-time purchases.</p><a class="button button-primary button-large" href="/catalog">Choose my free course <span aria-hidden="true">↗</span></a></div><div class="value-number"><small>FREE TRIAL</small><strong>1</strong><span>complete course</span></div></div>
         </section>
       </main>
     </div>
