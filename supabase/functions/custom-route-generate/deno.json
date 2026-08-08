@@ -1,6 +1,5 @@
 {
   "imports": {
-    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.55.0",
-    "youtubei.js": "npm:youtubei.js@17.2.0"
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.55.0"
   }
 }
