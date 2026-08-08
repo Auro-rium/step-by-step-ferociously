@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { Innertube } from 'youtubei.js';
 
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://finish-landing-nine.vercel.app';
 const OPENROUTER_MODEL = Deno.env.get('OPENROUTER_MODEL') || 'openrouter/free';
@@ -45,88 +44,124 @@ type PlaylistSource = {
   videos: PlaylistVideo[];
 };
 
+type WalkState = {
+  videos: PlaylistVideo[];
+  seen: Set<string>;
+  primaryContinuations: string[];
+  legacyContinuations: string[];
+  title: string;
+  channel: string;
+};
+
 function youtubeText(value: any, max = 300) {
   if (value == null) return '';
   if (typeof value === 'string') return cleanText(value, max);
+  if (typeof value?.content === 'string') return cleanText(value.content, max);
   if (typeof value?.text === 'string') return cleanText(value.text, max);
   if (typeof value?.simpleText === 'string') return cleanText(value.simpleText, max);
   if (Array.isArray(value?.runs)) return cleanText(value.runs.map((run: any) => run?.text || '').join(''), max);
-  try {
-    const text = value.toString?.();
-    if (text && text !== '[object Object]') return cleanText(text, max);
-  } catch { /* ignore malformed metadata */ }
   return '';
 }
 
-let youtubeClientPromise: Promise<Innertube> | null = null;
-function getYoutubeClient() {
-  if (!youtubeClientPromise) {
-    youtubeClientPromise = Innertube.create({
-      lang: 'en',
-      location: 'US',
-      retrieve_player: false,
-      user_agent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
-    }).catch((error) => {
-      youtubeClientPromise = null;
-      throw error;
-    });
-  }
-  return youtubeClientPromise;
+function durationMinutesFromText(value: unknown) {
+  const text = cleanText(value, 40);
+  if (!/^\d{1,3}:\d{2}(?::\d{2})?$/.test(text)) return 0;
+  const parts = text.split(':').map(Number);
+  if (parts.some((part) => !Number.isFinite(part))) return 0;
+  const seconds = parts.reduce((total, part) => (total * 60) + part, 0);
+  return seconds > 0 ? Math.max(1, Math.round(seconds / 60)) : 0;
 }
 
-function collectPlaylistItems(items: any[], videos: PlaylistVideo[], seen: Set<string>) {
-  for (const item of items || []) {
-    if (videos.length >= MAX_VIDEOS) break;
-    const id = cleanText(item?.video_id || item?.id || item?.content_id, 30);
-    const title = youtubeText(item?.title, 300);
-    const seconds = Number(item?.duration?.seconds ?? item?.duration_seconds ?? item?.length_seconds ?? 0);
-    if (!/^[A-Za-z0-9_-]{6,20}$/.test(id) || !title || seen.has(id)) continue;
-    seen.add(id);
-    videos.push({
-      video_id: id,
-      title,
-      duration_minutes: Number.isFinite(seconds) && seconds > 0 ? Math.max(1, Math.round(seconds / 60)) : 0,
-    });
+function lockupDurationMinutes(lockup: any) {
+  const overlays = lockup?.contentImage?.thumbnailViewModel?.overlays;
+  if (!Array.isArray(overlays)) return 0;
+  for (const overlay of overlays) {
+    const badges = overlay?.thumbnailBottomOverlayViewModel?.badges;
+    if (!Array.isArray(badges)) continue;
+    for (const badge of badges) {
+      const minutes = durationMinutesFromText(badge?.thumbnailBadgeViewModel?.text);
+      if (minutes > 0) return minutes;
+    }
   }
+  return 0;
 }
 
-async function getPlaylistSource(playlistId: string): Promise<PlaylistSource> {
-  const canonicalUrl = `https://www.youtube.com/playlist?list=${encodeURIComponent(playlistId)}`;
-  try {
-    const youtube = await getYoutubeClient();
-    let playlist = await youtube.getPlaylist(playlistId);
-    const info = playlist.info;
-    const videos: PlaylistVideo[] = [];
-    const seen = new Set<string>();
+function addVideo(state: WalkState, idValue: unknown, titleValue: unknown, durationMinutes: number) {
+  if (state.videos.length >= MAX_VIDEOS) return;
+  const id = cleanText(idValue, 30);
+  const title = youtubeText(titleValue, 300);
+  if (!/^[A-Za-z0-9_-]{6,20}$/.test(id) || !title || state.seen.has(id)) return;
+  state.seen.add(id);
+  state.videos.push({ video_id: id, title, duration_minutes: Math.max(0, Math.round(durationMinutes || 0)) });
+}
 
-    collectPlaylistItems(Array.from(playlist.items || []), videos, seen);
-    let pages = 0;
-    while (playlist.has_continuation && videos.length < MAX_VIDEOS && pages < 10) {
-      pages += 1;
-      playlist = await playlist.getContinuation();
-      collectPlaylistItems(Array.from(playlist.items || []), videos, seen);
-    }
+function walkYouTube(node: any, state: WalkState) {
+  if (!node || typeof node !== 'object') return;
 
-    if (videos.length < 2) {
-      throw new Error('This playlist did not expose at least two playable videos.');
-    }
+  const oldVideo = node.playlistVideoRenderer;
+  if (oldVideo) {
+    const seconds = Number(oldVideo.lengthSeconds || 0);
+    addVideo(
+      state,
+      oldVideo.videoId,
+      oldVideo.title,
+      Number.isFinite(seconds) && seconds > 0 ? Math.max(1, Math.round(seconds / 60)) : 0,
+    );
+    if (!state.channel) state.channel = youtubeText(oldVideo.shortBylineText, 240);
+  }
 
-    const thumbnails = Array.isArray(info?.thumbnails) ? info.thumbnails : [];
-    const bestThumbnail = thumbnails
-      .filter((thumb: any) => typeof thumb?.url === 'string')
-      .sort((a: any, b: any) => Number(b?.width || 0) * Number(b?.height || 0) - Number(a?.width || 0) * Number(a?.height || 0))[0];
+  const lockup = node.lockupViewModel;
+  if (lockup?.contentType === 'LOCKUP_CONTENT_TYPE_VIDEO') {
+    addVideo(
+      state,
+      lockup.contentId,
+      lockup?.metadata?.lockupMetadataViewModel?.title,
+      lockupDurationMinutes(lockup),
+    );
+  }
 
-    return {
-      playlist_id: playlistId,
-      url: canonicalUrl,
-      title: cleanText(info?.title || 'YouTube Playlist', 240),
-      channel: cleanText(info?.author?.name || 'YouTube creator', 240),
-      cover_image_url: cleanText(bestThumbnail?.url || `https://i.ytimg.com/vi/${videos[0].video_id}/hqdefault.jpg`, 1000),
-      videos,
-    };
-  } catch (error) {
-    const detail = error instanceof Error ? cleanText(error.message, 260) : '';
-    throw new Error(`FINISH could not read this YouTube playlist. Make sure it is public or unlisted and contains at least two playable videos.${detail ? ` YouTube detail: ${detail}` : ''}`);
+  const playlistMeta = node.playlistMetadataRenderer;
+  if (playlistMeta && !state.title) state.title = youtubeText(playlistMeta.title, 240);
+
+  const header = node.playlistHeaderRenderer;
+  if (header) {
+    if (!state.title) state.title = youtubeText(header.title, 240);
+    if (!state.channel) state.channel = youtubeText(header.ownerText, 240);
+  }
+
+  const primary = node.playlistSidebarPrimaryInfoRenderer;
+  if (primary && !state.title) state.title = youtubeText(primary.title, 240);
+
+  const secondary = node.playlistSidebarSecondaryInfoRenderer;
+  if (secondary && !state.channel) {
+    state.channel = youtubeText(secondary.videoOwner?.videoOwnerRenderer?.title, 240);
+  }
+
+  const primaryToken =
+    node.continuationItemViewModel?.continuationCommand?.innertubeCommand?.continuationCommand?.token;
+  if (
+    typeof primaryToken === 'string'
+    && primaryToken.length > 10
+    && !state.primaryContinuations.includes(primaryToken)
+  ) {
+    state.primaryContinuations.push(primaryToken);
+  }
+
+  const legacyToken =
+    node.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token
+    || node.continuationCommand?.token;
+  if (
+    typeof legacyToken === 'string'
+    && legacyToken.length > 10
+    && !state.legacyContinuations.includes(legacyToken)
+  ) {
+    state.legacyContinuations.push(legacyToken);
+  }
+
+  if (Array.isArray(node)) {
+    for (const item of node) walkYouTube(item, state);
+  } else {
+    for (const value of Object.values(node)) walkYouTube(value, state);
   }
 }
 
@@ -138,6 +173,109 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function getPlaylistSource(playlistId: string): Promise<PlaylistSource> {
+  const canonicalUrl = `https://www.youtube.com/playlist?list=${encodeURIComponent(playlistId)}`;
+  const page = await fetchWithTimeout(`${canonicalUrl}&hl=en`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
+      'Accept-Language': 'en-US,en;q=0.9',
+    },
+  }, 30000);
+
+  if (!page.ok) {
+    throw new Error('YouTube did not return this playlist. Check that the playlist URL is valid.');
+  }
+
+  const html = await page.text();
+  const apiKey = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1] || '';
+  const clientVersion = html.match(/"INNERTUBE_CONTEXT_CLIENT_VERSION":"([^"]+)"/)?.[1] || '';
+  const visitorData = html.match(/"VISITOR_DATA":"([^"]+)"/)?.[1] || '';
+
+  if (!apiKey || !clientVersion) {
+    throw new Error('YouTube did not expose the playlist browse configuration. Please retry.');
+  }
+
+  const context = {
+    client: {
+      clientName: 'WEB',
+      clientVersion,
+      hl: 'en',
+      gl: 'US',
+      ...(visitorData ? { visitorData } : {}),
+    },
+  };
+
+  const browse = async (payload: Record<string, unknown>) => {
+    const response = await fetchWithTimeout(
+      `https://www.youtube.com/youtubei/v1/browse?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
+          'Origin': 'https://www.youtube.com',
+          'Referer': canonicalUrl,
+        },
+        body: JSON.stringify({ context, ...payload }),
+      },
+      25000,
+    );
+
+    const body = await response.json().catch(() => null);
+    if (response.status === 404) {
+      throw new Error('YouTube cannot expose this playlist to FINISH. It is private, deleted, or the playlist ID is invalid. Change it to Unlisted or Public and copy the playlist URL again.');
+    }
+    if (!response.ok || !body) {
+      throw new Error(`YouTube playlist browse failed with status ${response.status}.`);
+    }
+    return body;
+  };
+
+  const state: WalkState = {
+    videos: [],
+    seen: new Set(),
+    primaryContinuations: [],
+    legacyContinuations: [],
+    title: '',
+    channel: '',
+  };
+
+  const first = await browse({ browseId: `VL${playlistId}` });
+  walkYouTube(first, state);
+
+  let continuation = state.primaryContinuations.shift() || state.legacyContinuations.shift() || '';
+  let pages = 0;
+
+  while (continuation && state.videos.length < MAX_VIDEOS && pages < 10) {
+    pages += 1;
+    state.primaryContinuations.length = 0;
+    state.legacyContinuations.length = 0;
+    const next = await browse({ continuation });
+    walkYouTube(next, state);
+    continuation = state.primaryContinuations.shift() || state.legacyContinuations.shift() || '';
+  }
+
+  if (state.videos.length < 2) {
+    throw new Error('YouTube returned this playlist but did not expose at least two playable videos. Make sure the playlist is Public or Unlisted.');
+  }
+
+  const metaTitle = cleanText(
+    html.match(/<meta[^>]+property="og:title"[^>]+content="([^"]+)"/i)?.[1]
+      || html.match(/<title>([^<]+)<\/title>/i)?.[1]
+      || '',
+    240,
+  ).replace(/\s*-\s*YouTube\s*$/i, '');
+
+  return {
+    playlist_id: playlistId,
+    url: canonicalUrl,
+    title: cleanText(state.title || metaTitle || 'YouTube Playlist', 240),
+    channel: cleanText(state.channel || 'YouTube creator', 240),
+    cover_image_url: `https://i.ytimg.com/vi/${state.videos[0].video_id}/hqdefault.jpg`,
+    videos: state.videos.slice(0, MAX_VIDEOS),
+  };
 }
 
 function extractAssistantText(payload: any) {
