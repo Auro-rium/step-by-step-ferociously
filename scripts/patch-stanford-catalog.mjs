@@ -83,16 +83,22 @@ for (const entry of entries.split('\n')) {
   sitemap = sitemap.replace('</urlset>', `${entry}\n</urlset>`);
 }
 
-company = replaceKnown(
-  company,
-  'const fallbackStats = { courses: 64, lessons: 1753, quizzes: 128, questions: 2560, projects: 64 };',
-  'const fallbackStats = { courses: 104, lessons: 2724, quizzes: 208, questions: 4160, projects: 104 };',
-  'company fallback statistics',
-);
-company = company.replace(
-  'Focused routes across programming, systems, algorithms, mathematics, security and AI.',
-  'Focused routes across AI, programming, systems, algorithms, mathematics, security and finance.',
-);
+const stats64 = 'const fallbackStats = { courses: 64, lessons: 1753, quizzes: 128, questions: 2560, projects: 64 };';
+const stats84 = 'const fallbackStats = { courses: 84, lessons: 2216, quizzes: 168, questions: 3360, projects: 84 };';
+const stats104 = 'const fallbackStats = { courses: 104, lessons: 2724, quizzes: 208, questions: 4160, projects: 104 };';
+if (!company.includes(stats104)) {
+  if (company.includes(stats84)) company = company.replace(stats84, stats104);
+  else company = replaceKnown(company, stats64, stats104, 'company fallback statistics');
+}
+company = company
+  .replace(
+    'Focused routes across programming, systems, algorithms, mathematics, security and AI.',
+    'Focused routes across AI, programming, systems, algorithms, mathematics, security and finance.',
+  )
+  .replace(
+    'Focused routes across finance, programming, systems, algorithms, mathematics, security and AI.',
+    'Focused routes across AI, programming, systems, algorithms, mathematics, security and finance.',
+  );
 
 verify = replaceKnown(
   verify,
