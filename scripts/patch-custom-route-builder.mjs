@@ -139,10 +139,10 @@ if (!landing.includes('<a href="/custom">Make a route</a>')) {
     '<a href="/catalog">Courses</a>\n          <a href="/custom">Make a route</a>',
   );
 }
-if (!landing.includes('Turn my playlist into a route')) {
+if (!landing.includes('Build from my playlist') && !landing.includes('Turn my playlist into a route')) {
   landing = landing.replace(
     '<a class="text-link" href="#method">See the method <span aria-hidden="true">→</span></a>',
-    '<a class="text-link" href="/custom">Turn my playlist into a route <span aria-hidden="true">→</span></a>\n              <a class="text-link" href="#method">See the method <span aria-hidden="true">→</span></a>',
+    '<a class="text-link" href="/custom">Build from my playlist <span aria-hidden="true">→</span></a>\n              <a class="text-link" href="#method">See the method <span aria-hidden="true">→</span></a>',
   );
 }
 fs.writeFileSync(landingFile, landing);
@@ -163,7 +163,7 @@ if (!catalog.includes('&visibility=eq.public&order=')) {
 fs.writeFileSync(catalogFile, catalog);
 
 for (const [file, markers] of [
-  [landingFile, ['<a href="/custom">Make a route</a>', 'Turn my playlist into a route']],
+  [landingFile, ['<a href="/custom">Make a route</a>', 'Build from my playlist']],
   [catalogFile, ['<a href="/custom">Make a route</a>', '&visibility=eq.public&order=']],
 ]) {
   const source = fs.readFileSync(file, 'utf8');
