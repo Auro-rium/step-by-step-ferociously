@@ -90,7 +90,7 @@ export function mountLanding() {
                 <div class="preview-content"><div class="preview-label">LESSON 03 OF 18</div><h2>Delay, loss and throughput</h2><div class="preview-video"><span class="route-play" aria-hidden="true">▶</span><span>42% watched</span></div><div class="preview-progress"><span style="width:42%"></span></div><div class="preview-bottom"><b>Complete 80% to unlock the checkpoint</b><span>240 XP</span></div></div>
               </div>
             </div>
-            <div class="floating-card float-a"><span aria-hidden="true">▦</span><div><b>100+</b><span>structured routes</span></div></div>
+            <div class="floating-card float-a"><span aria-hidden="true">◴</span><div><b>68%</b><span>route progress</span></div></div>
             <div class="floating-card float-b"><span aria-hidden="true">✦</span><div><b>BYO</b><span>playlist → FINISH route</span></div></div>
           </div>
         </section>
