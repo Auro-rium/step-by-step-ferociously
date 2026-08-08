@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { Innertube } from 'youtubei.js';
 
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://finish-landing-nine.vercel.app';
 const OPENROUTER_MODEL = Deno.env.get('OPENROUTER_MODEL') || 'openrouter/free';
@@ -20,22 +21,6 @@ function cleanText(value: unknown, max = 500) {
   return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
-function decodeHtml(value: string) {
-  return value
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>');
-}
-
-function textFromRuns(node: any): string {
-  if (!node) return '';
-  if (typeof node.simpleText === 'string') return cleanText(node.simpleText, 300);
-  if (Array.isArray(node.runs)) return cleanText(node.runs.map((run: any) => run?.text || '').join(''), 300);
-  return '';
-}
-
 function parsePlaylistId(rawUrl: string) {
   let url: URL;
   try { url = new URL(rawUrl); } catch { throw new Error('Paste a valid YouTube playlist URL.'); }
@@ -50,34 +35,6 @@ function parsePlaylistId(rawUrl: string) {
   return playlistId;
 }
 
-function extractJsonAfterMarker(text: string, marker: string): any | null {
-  const markerIndex = text.indexOf(marker);
-  if (markerIndex < 0) return null;
-  const start = text.indexOf('{', markerIndex + marker.length);
-  if (start < 0) return null;
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let index = start; index < text.length; index += 1) {
-    const char = text[index];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (char === '\\') escaped = true;
-      else if (char === '"') inString = false;
-      continue;
-    }
-    if (char === '"') { inString = true; continue; }
-    if (char === '{') depth += 1;
-    else if (char === '}') {
-      depth -= 1;
-      if (depth === 0) {
-        try { return JSON.parse(text.slice(start, index + 1)); } catch { return null; }
-      }
-    }
-  }
-  return null;
-}
-
 type PlaylistVideo = { video_id: string; title: string; duration_minutes: number };
 type PlaylistSource = {
   playlist_id: string;
@@ -88,58 +45,88 @@ type PlaylistSource = {
   videos: PlaylistVideo[];
 };
 
-type WalkState = {
-  videos: PlaylistVideo[];
-  seen: Set<string>;
-  continuations: string[];
-  title: string;
-  channel: string;
-};
+function youtubeText(value: any, max = 300) {
+  if (value == null) return '';
+  if (typeof value === 'string') return cleanText(value, max);
+  if (typeof value?.text === 'string') return cleanText(value.text, max);
+  if (typeof value?.simpleText === 'string') return cleanText(value.simpleText, max);
+  if (Array.isArray(value?.runs)) return cleanText(value.runs.map((run: any) => run?.text || '').join(''), max);
+  try {
+    const text = value.toString?.();
+    if (text && text !== '[object Object]') return cleanText(text, max);
+  } catch { /* ignore malformed metadata */ }
+  return '';
+}
 
-function walkYouTube(node: any, state: WalkState) {
-  if (!node || typeof node !== 'object') return;
+let youtubeClientPromise: Promise<Innertube> | null = null;
+function getYoutubeClient() {
+  if (!youtubeClientPromise) {
+    youtubeClientPromise = Innertube.create({
+      lang: 'en',
+      location: 'US',
+      retrieve_player: false,
+      user_agent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
+    }).catch((error) => {
+      youtubeClientPromise = null;
+      throw error;
+    });
+  }
+  return youtubeClientPromise;
+}
 
-  const renderer = node.playlistVideoRenderer;
-  if (renderer && state.videos.length < MAX_VIDEOS) {
-    const id = cleanText(renderer.videoId, 30);
-    const title = textFromRuns(renderer.title);
-    const playable = renderer.isPlayable !== false && renderer.unplayableText == null;
-    if (playable && /^[A-Za-z0-9_-]{6,20}$/.test(id) && title && !state.seen.has(id)) {
-      const seconds = Number(renderer.lengthSeconds || 0);
-      state.seen.add(id);
-      state.videos.push({
-        video_id: id,
-        title,
-        duration_minutes: Number.isFinite(seconds) && seconds > 0 ? Math.max(1, Math.round(seconds / 60)) : 0,
-      });
-      if (!state.channel) state.channel = textFromRuns(renderer.shortBylineText);
+function collectPlaylistItems(items: any[], videos: PlaylistVideo[], seen: Set<string>) {
+  for (const item of items || []) {
+    if (videos.length >= MAX_VIDEOS) break;
+    const id = cleanText(item?.video_id || item?.id || item?.content_id, 30);
+    const title = youtubeText(item?.title, 300);
+    const seconds = Number(item?.duration?.seconds ?? item?.duration_seconds ?? item?.length_seconds ?? 0);
+    if (!/^[A-Za-z0-9_-]{6,20}$/.test(id) || !title || seen.has(id)) continue;
+    seen.add(id);
+    videos.push({
+      video_id: id,
+      title,
+      duration_minutes: Number.isFinite(seconds) && seconds > 0 ? Math.max(1, Math.round(seconds / 60)) : 0,
+    });
+  }
+}
+
+async function getPlaylistSource(playlistId: string): Promise<PlaylistSource> {
+  const canonicalUrl = `https://www.youtube.com/playlist?list=${encodeURIComponent(playlistId)}`;
+  try {
+    const youtube = await getYoutubeClient();
+    let playlist = await youtube.getPlaylist(playlistId);
+    const info = playlist.info;
+    const videos: PlaylistVideo[] = [];
+    const seen = new Set<string>();
+
+    collectPlaylistItems(Array.from(playlist.items || []), videos, seen);
+    let pages = 0;
+    while (playlist.has_continuation && videos.length < MAX_VIDEOS && pages < 10) {
+      pages += 1;
+      playlist = await playlist.getContinuation();
+      collectPlaylistItems(Array.from(playlist.items || []), videos, seen);
     }
-  }
 
-  const header = node.playlistHeaderRenderer;
-  if (header) {
-    if (!state.title) state.title = textFromRuns(header.title);
-    if (!state.channel) state.channel = textFromRuns(header.ownerText);
-  }
+    if (videos.length < 2) {
+      throw new Error('This playlist did not expose at least two playable videos.');
+    }
 
-  const primary = node.playlistSidebarPrimaryInfoRenderer;
-  if (primary && !state.title) state.title = textFromRuns(primary.title);
+    const thumbnails = Array.isArray(info?.thumbnails) ? info.thumbnails : [];
+    const bestThumbnail = thumbnails
+      .filter((thumb: any) => typeof thumb?.url === 'string')
+      .sort((a: any, b: any) => Number(b?.width || 0) * Number(b?.height || 0) - Number(a?.width || 0) * Number(a?.height || 0))[0];
 
-  const secondary = node.playlistSidebarSecondaryInfoRenderer;
-  if (secondary && !state.channel) {
-    state.channel = textFromRuns(secondary.videoOwner?.videoOwnerRenderer?.title);
-  }
-
-  const continuation = node.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token
-    || node.continuationCommand?.token;
-  if (typeof continuation === 'string' && continuation.length > 10 && !state.continuations.includes(continuation)) {
-    state.continuations.push(continuation);
-  }
-
-  if (Array.isArray(node)) {
-    for (const item of node) walkYouTube(item, state);
-  } else {
-    for (const value of Object.values(node)) walkYouTube(value, state);
+    return {
+      playlist_id: playlistId,
+      url: canonicalUrl,
+      title: cleanText(info?.title || 'YouTube Playlist', 240),
+      channel: cleanText(info?.author?.name || 'YouTube creator', 240),
+      cover_image_url: cleanText(bestThumbnail?.url || `https://i.ytimg.com/vi/${videos[0].video_id}/hqdefault.jpg`, 1000),
+      videos,
+    };
+  } catch (error) {
+    const detail = error instanceof Error ? cleanText(error.message, 260) : '';
+    throw new Error(`FINISH could not read this YouTube playlist. Make sure it is public or unlisted and contains at least two playable videos.${detail ? ` YouTube detail: ${detail}` : ''}`);
   }
 }
 
@@ -151,74 +138,6 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
   } finally {
     clearTimeout(timer);
   }
-}
-
-async function getPlaylistSource(playlistId: string): Promise<PlaylistSource> {
-  const canonicalUrl = `https://www.youtube.com/playlist?list=${encodeURIComponent(playlistId)}`;
-  const response = await fetchWithTimeout(`${canonicalUrl}&hl=en`, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Cookie': 'CONSENT=YES+cb; SOCS=CAI',
-    },
-  }, 30000);
-  if (!response.ok) throw new Error('YouTube did not return this playlist. Check that it is public or unlisted.');
-  const html = await response.text();
-
-  const initial = [
-    'var ytInitialData = ',
-    'ytInitialData = ',
-    'window["ytInitialData"] = ',
-    "window['ytInitialData'] = ",
-  ].map((marker) => extractJsonAfterMarker(html, marker)).find(Boolean);
-
-  const state: WalkState = { videos: [], seen: new Set(), continuations: [], title: '', channel: '' };
-  if (initial) walkYouTube(initial, state);
-
-  const apiKey = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1] || '';
-  const clientVersion = html.match(/"INNERTUBE_CONTEXT_CLIENT_VERSION":"([^"]+)"/)?.[1] || '2.20260801.00.00';
-  let continuation = state.continuations.shift() || '';
-  let pages = 0;
-
-  while (continuation && apiKey && state.videos.length < MAX_VIDEOS && pages < 8) {
-    pages += 1;
-    const next = await fetchWithTimeout(`https://www.youtube.com/youtubei/v1/browse?key=${encodeURIComponent(apiKey)}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
-        'Origin': 'https://www.youtube.com',
-        'Referer': canonicalUrl,
-      },
-      body: JSON.stringify({
-        context: { client: { clientName: 'WEB', clientVersion, hl: 'en', gl: 'US' } },
-        continuation,
-      }),
-    }, 20000);
-    if (!next.ok) break;
-    const payload = await next.json().catch(() => null);
-    state.continuations.length = 0;
-    if (payload) walkYouTube(payload, state);
-    continuation = state.continuations.shift() || '';
-  }
-
-  if (state.videos.length < 2) {
-    throw new Error('FINISH could not read enough playable videos from this playlist. Make sure the playlist is public or unlisted and contains at least two videos.');
-  }
-
-  const metaTitle = decodeHtml(html.match(/<meta[^>]+property="og:title"[^>]+content="([^"]+)"/i)?.[1] || '');
-  const pageTitle = decodeHtml(html.match(/<title>([^<]+)<\/title>/i)?.[1] || '').replace(/\s*-\s*YouTube\s*$/i, '');
-  const title = cleanText(state.title || metaTitle || pageTitle || 'YouTube Playlist', 240);
-  const channel = cleanText(state.channel || 'YouTube creator', 240);
-
-  return {
-    playlist_id: playlistId,
-    url: canonicalUrl,
-    title,
-    channel,
-    cover_image_url: `https://i.ytimg.com/vi/${state.videos[0].video_id}/hqdefault.jpg`,
-    videos: state.videos.slice(0, MAX_VIDEOS),
-  };
 }
 
 function extractAssistantText(payload: any) {
@@ -397,10 +316,11 @@ Deno.serve(async (req: Request) => {
       .select('id,status')
       .eq('user_id', userData.user.id)
       .gte('created_at', since)
+      .in('status', ['generating', 'ready'])
       .order('created_at', { ascending: false });
     if (recentError) throw recentError;
     if ((recent || []).length >= MAX_REQUESTS_PER_DAY) {
-      return json({ error: `Custom route generation is limited to ${MAX_REQUESTS_PER_DAY} attempts per account every 24 hours while the AI tier is free.` }, 429);
+      return json({ error: `Custom route generation is limited to ${MAX_REQUESTS_PER_DAY} successful or active attempts per account every 24 hours while the AI tier is free.` }, 429);
     }
 
     const { data: pending, error: insertError } = await db
