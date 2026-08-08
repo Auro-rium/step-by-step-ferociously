@@ -59,7 +59,7 @@ function formatDate(value: string) {
   catch { return value; }
 }
 
-export function CustomRouteBuilder({ client, userId }: { client: SupabaseClient; userId: string }) {
+export function CustomRouteBuilder({ client, userId, supabaseUrl, supabaseKey }: { client: SupabaseClient; userId: string; supabaseUrl: string; supabaseKey: string }) {
   const [requests, setRequests] = useState<CustomRequest[]>([]);
   const [access, setAccess] = useState<AccessMap>(new Map());
   const [playlistUrl, setPlaylistUrl] = useState('');
@@ -113,11 +113,11 @@ export function CustomRouteBuilder({ client, userId }: { client: SupabaseClient;
       const token = session.data.session?.access_token;
       if (!token) throw new Error('Your session expired. Sign in again and retry.');
 
-      const response = await fetch(`${client.supabaseUrl}/functions/v1/custom-route-generate`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1/custom-route-generate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
-          apikey: client.supabaseKey,
+          apikey: supabaseKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ playlist_url: raw }),
@@ -163,18 +163,9 @@ export function CustomRouteBuilder({ client, userId }: { client: SupabaseClient;
       <form onSubmit={submit} className="custom-route-form">
         <label htmlFor="playlist-url">PLAYLIST URL</label>
         <div className="custom-route-input-row">
-          <input
-            id="playlist-url"
-            type="url"
-            value={playlistUrl}
-            onChange={(event) => setPlaylistUrl(event.target.value)}
-            placeholder="https://www.youtube.com/playlist?list=..."
-            required
-            disabled={busy}
-          />
+          <input id="playlist-url" type="url" value={playlistUrl} onChange={(event) => setPlaylistUrl(event.target.value)} placeholder="https://www.youtube.com/playlist?list=..." required disabled={busy} />
           <button className="button button-acid button-large" disabled={busy || !playlistUrl.trim()}>
-            {busy ? <LoaderCircle className="spin" /> : <Sparkles size={18} />}
-            {busy ? 'Building your route…' : 'Build my FINISH route'}
+            {busy ? <LoaderCircle className="spin" /> : <Sparkles size={18} />}{busy ? 'Building your route…' : 'Build my FINISH route'}
           </button>
         </div>
       </form>
@@ -187,26 +178,15 @@ export function CustomRouteBuilder({ client, userId }: { client: SupabaseClient;
     {generated && <section className="custom-generated panel">
       <div className="custom-generated-mark"><Sparkles /></div>
       <div className="custom-generated-copy">
-        <p className="eyebrow">ROUTE READY</p>
-        <h2>{generated.title}</h2>
-        <p>{generated.description}</p>
-        <div className="custom-generated-meta">
-          <span>{generated.lesson_count} lessons</span><span>40 quiz questions</span><span>{generated.difficulty || 'Intermediate'}</span><span>1 flagship project</span>
-        </div>
+        <p className="eyebrow">ROUTE READY</p><h2>{generated.title}</h2><p>{generated.description}</p>
+        <div className="custom-generated-meta"><span>{generated.lesson_count} lessons</span><span>40 quiz questions</span><span>{generated.difficulty || 'Intermediate'}</span><span>1 flagship project</span></div>
         {generated.outcome && <blockquote>{generated.outcome}</blockquote>}
       </div>
-      <div className="custom-generated-action">
-        <small>UNLOCK THIS PRIVATE ROUTE</small>
-        <strong>$1.00</strong>
-        <Link className="button button-primary button-large" to={`/checkout/${generated.slug}`}><CircleDollarSign size={18} />Unlock route <ArrowUpRight size={17} /></Link>
-      </div>
+      <div className="custom-generated-action"><small>UNLOCK THIS PRIVATE ROUTE</small><strong>$1.00</strong><Link className="button button-primary button-large" to={`/checkout/${generated.slug}`}><CircleDollarSign size={18} />Unlock route <ArrowUpRight size={17} /></Link></div>
     </section>}
 
     <section className="custom-route-history">
-      <div className="section-row">
-        <div><p className="eyebrow">MY CUSTOM ROUTES</p><h2>{readyCount ? `${readyCount} route${readyCount === 1 ? '' : 's'} generated.` : 'Nothing generated yet.'}</h2></div>
-        <button className="button button-soft" onClick={() => void load()} disabled={loading}><RefreshCw size={16} className={loading ? 'spin' : ''} />Refresh</button>
-      </div>
+      <div className="section-row"><div><p className="eyebrow">MY CUSTOM ROUTES</p><h2>{readyCount ? `${readyCount} route${readyCount === 1 ? '' : 's'} generated.` : 'Nothing generated yet.'}</h2></div><button className="button button-soft" onClick={() => void load()} disabled={loading}><RefreshCw size={16} className={loading ? 'spin' : ''} />Refresh</button></div>
 
       {loading ? <div className="custom-history-loading"><LoaderCircle className="spin" />Loading custom routes</div> : requests.length ? <div className="custom-route-list">
         {requests.map((request) => {
@@ -215,17 +195,11 @@ export function CustomRouteBuilder({ client, userId }: { client: SupabaseClient;
           const unlocked = status === 'paid' || status === 'granted';
           return <article className={`custom-route-row ${request.status}`} key={request.id}>
             <div className="custom-route-source"><Youtube size={20} /><div><strong>{request.source_title || 'YouTube playlist'}</strong><span>{request.source_channel || request.playlist_id}</span></div></div>
-            <div className="custom-route-status">
-              <span className={`custom-status-pill ${request.status}`}>{request.status}</span>
-              <small>{request.video_count ? `${request.video_count} lessons · ` : ''}{formatDate(request.created_at)}</small>
-              {request.status === 'failed' && request.error && <p>{request.error}</p>}
-            </div>
+            <div className="custom-route-status"><span className={`custom-status-pill ${request.status}`}>{request.status}</span><small>{request.video_count ? `${request.video_count} lessons · ` : ''}{formatDate(request.created_at)}</small>{request.status === 'failed' && request.error && <p>{request.error}</p>}</div>
             <div className="custom-route-row-actions">
               <a className="icon-button" href={request.source_url} target="_blank" rel="noreferrer" aria-label="Open source playlist"><ExternalLink size={17} /></a>
               {request.status === 'generating' && <span className="button button-soft route-disabled"><LoaderCircle className="spin" />Generating</span>}
-              {request.status === 'ready' && course && (unlocked
-                ? <Link className="button button-acid" to={`/learn/${course.slug}`}>Open route <ArrowUpRight size={15} /></Link>
-                : <Link className="button button-primary" to={`/checkout/${course.slug}`}>Unlock $1 <ArrowUpRight size={15} /></Link>)}
+              {request.status === 'ready' && course && (unlocked ? <Link className="button button-acid" to={`/learn/${course.slug}`}>Open route <ArrowUpRight size={15} /></Link> : <Link className="button button-primary" to={`/checkout/${course.slug}`}>Unlock $1 <ArrowUpRight size={15} /></Link>)}
             </div>
           </article>;
         })}
