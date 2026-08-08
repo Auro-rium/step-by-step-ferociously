@@ -19,18 +19,8 @@ function replaceRequired(source, search, replacement, label) {
 let main = fs.readFileSync(mainFile, 'utf8');
 
 if (!main.includes('type FreeCourseTrialStatus =')) {
-  const marker = `interface PaymentOrder {
-  id: string;
-  provider: string;
-  amount: number;
-  currency: string;
-  status: string;
-  created_at: string;
-  challenges?: { title?: string } | null;
-}
-`;
-  const replacement = `${marker}
-type FreeCourseTrialStatus = {
+  const marker = '// ---- src/lib/supabase.ts ----';
+  const trialType = `type FreeCourseTrialStatus = {
   eligible: boolean;
   claimed?: boolean;
   reason?: string;
@@ -39,8 +29,9 @@ type FreeCourseTrialStatus = {
   title?: string;
   claimed_at?: string;
 };
+
 `;
-  main = replaceRequired(main, marker, replacement, 'the shared payment-order type boundary');
+  main = replaceRequired(main, marker, trialType + marker, 'the shared type boundary');
 }
 
 if (!main.includes('const [freeTrial, setFreeTrial]')) {
