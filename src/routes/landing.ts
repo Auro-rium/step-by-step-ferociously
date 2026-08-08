@@ -42,6 +42,7 @@ export function mountLanding() {
         <a href="/" class="brand" aria-label="FINISH home">FINISH<span>.</span></a>
         <nav class="desktop-nav" aria-label="Primary navigation">
           <a href="/catalog">Courses</a>
+          <a href="/custom">Make a route</a>
           <a href="#method">How it works</a>
           <a href="/why">Why FINISH</a>
         </nav>
@@ -57,6 +58,7 @@ export function mountLanding() {
             <p>FINISH turns excellent YouTube playlists into structured learning routes with ordered lessons, two mastery checks, saved progress, XP and a flagship project.</p>
             <div class="hero-actions">
               <a class="button button-primary button-large" href="/catalog">Explore courses <span aria-hidden="true">↗</span></a>
+              <a class="text-link" href="/custom">Turn my playlist into a route <span aria-hidden="true">→</span></a>
               <a class="text-link" href="#method">See the method <span aria-hidden="true">→</span></a>
             </div>
             <div class="trust-row"><span>✓ No subscription trap</span><span>✓ Permanent course access</span><span>✓ Progress saved</span></div>
