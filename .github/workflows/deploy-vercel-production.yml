@@ -35,11 +35,17 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Prepare product source
+        run: npm run prepare:product
+
+      - name: Verify launch invariants
+        run: npm run verify:launch
+
       - name: Typecheck
-        run: npm run typecheck
+        run: npx tsc --noEmit --pretty false
 
       - name: Build application
-        run: npm run build
+        run: npx vite build
 
       - name: Upload verified build
         uses: actions/upload-artifact@v4
