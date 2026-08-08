@@ -224,8 +224,8 @@ requireText('public/launch-discount.js', ['$1 USD worldwide · one-time', '$2 US
 forbidText('public/launch-discount.js', ['₹79', '₹159', 'INR', 'India ·']);
 
 requireText('public/company-shell.js', [
-  'courses: 84, lessons: 2216, quizzes: 168, questions: 3360, projects: 84',
-  'Focused routes across finance, programming, systems, algorithms, mathematics, security and AI.',
+  'courses: 104, lessons: 2724, quizzes: 208, questions: 4160, projects: 104',
+  'Focused routes across AI, programming, systems, algorithms, mathematics, security and finance.',
   'href="/payments"',
   'href="/cookies"',
   'href="/acceptable-use"',
